@@ -1,50 +1,69 @@
-# Welcome to your Expo app 👋
+# 🧗 Crux
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A bouldering tracker for climbers who care about the send.
 
-## Get started
+Log every climb, range‑grade the ones you're not sure about, snap photos and videos of your beta, and watch your pyramid grow.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Features
 
-2. Start the app
+- **Log climbs** — V‑grade, route name, location, attempts, sessions, notes, date
+- **Grade ranges** — tap multiple adjacent grades when you're not sure (`V4‑6`)
+- **Sent vs. attempted** — track projects honestly; only sends count toward your pyramid
+- **Photos & videos** — pick from your camera roll, looping playback in the detail view
+- **Catalogue** — search by name, location, or grade; filter by chip
+- **Stats**
+  - Grade pyramid with summary (avg + hardest)
+  - Monthly trend (highest send + average) rendered with SVG
+- **Dark theme**, climbing‑inspired warm accent
+- **Offline first** — everything stored locally on device via AsyncStorage
 
-   ```bash
-   npx expo start
-   ```
+## Stack
 
-In the output, you'll find options to open the app in a
+- [Expo](https://expo.dev) (SDK 54) + [Expo Router](https://docs.expo.dev/router/introduction)
+- React Native + TypeScript
+- `expo-image-picker`, `expo-video`, `expo-video-thumbnails`
+- `react-native-svg` for the trend chart
+- `@react-native-async-storage/async-storage` for persistence
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Project structure
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+app/
+├── (tabs)/          # Feed, Catalogue, Stats
+├── climb/[id].tsx   # Climb detail
+├── log.tsx          # Log/edit modal
+└── _layout.tsx
+components/          # GradeTag, ClimbCard, MediaPicker, MediaView
+constants/climbing.ts  # Grades, palette, theme, types
+hooks/use-climbs.tsx   # Climbs context + AsyncStorage
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Run it
 
-## Learn more
+```bash
+npm install
+npx expo start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Scan the QR with [Expo Go](https://expo.dev/go) on your phone.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Publishing updates
 
-## Join the community
+```bash
+npx eas-cli update --branch main --message "what changed"
+```
 
-Join our community of developers creating universal apps.
+The published app is available to anyone signed into the project's Expo account.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Roadmap
+
+- [ ] Outdoor / sport grade systems (5.x, font scale)
+- [ ] Persist media in `FileSystem.documentDirectory` so iOS doesn't evict cached files
+- [ ] Optional iCloud / cloud backup
+- [ ] PWA build for sharing without an app store
+
+---
+
+Named after the **crux** — the hardest move of a climb, where the route is won or lost.
