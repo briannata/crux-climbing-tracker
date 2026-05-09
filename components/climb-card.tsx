@@ -19,9 +19,16 @@ export function ClimbCard({ climb, onPress }: { climb: Climb; onPress: () => voi
       <View style={[styles.colorBar, { backgroundColor: col }]} />
       <View style={styles.body}>
         <View style={styles.row}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
             <GradeTag climb={climb} />
+            {(climb.count ?? 1) > 1 && (
+              <Text style={styles.countTag}>×{climb.count}</Text>
+            )}
+            {!!climb.holdColor && (
+              <View style={[styles.holdDot, { backgroundColor: climb.holdColor }]} />
+            )}
             {!climb.sent && <Text style={styles.attemptTag}>ATTEMPT</Text>}
+            {!!climb.style && <Text style={styles.styleTag}>{climb.style}</Text>}
           </View>
           <Text style={styles.date}>{dateStr}</Text>
         </View>
@@ -83,6 +90,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 4,
+  },
+  styleTag: {
+    fontSize: 10,
+    color: C.textSec,
+    backgroundColor: C.surfaceEl,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    textTransform: 'lowercase',
+  },
+  countTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: C.accent,
+    fontFamily: 'monospace',
+  },
+  holdDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   colorBar: { width: 4 },
   body: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, minWidth: 0 },

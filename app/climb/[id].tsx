@@ -63,13 +63,32 @@ export default function ClimbDetailScreen() {
           <Text style={[styles.gradeHero, { color: col, textShadowColor: col + '66' }]}>
             {gradeLabel}
           </Text>
-          <Text style={[styles.statusBadge, climb.sent ? styles.statusSent : styles.statusAttempt]}>
-            {climb.sent ? '✓ SENT' : '· ATTEMPT'}
-          </Text>
+          {(climb.count ?? 1) > 1 && (
+            <Text style={styles.countBig}>×{climb.count}</Text>
+          )}
+          <View style={styles.heroBadgeRow}>
+            <Text style={[styles.statusBadge, climb.sent ? styles.statusSent : styles.statusAttempt]}>
+              {climb.sent ? '✓ SENT' : '· ATTEMPT'}
+            </Text>
+            {!!climb.style && (
+              <Text style={[styles.statusBadge, styles.styleBadge]}>{climb.style.toUpperCase()}</Text>
+            )}
+            {!!climb.holdColor && (
+              <View style={[styles.holdBadge, { backgroundColor: climb.holdColor }]} />
+            )}
+          </View>
           {!!climb.routeName && <Text style={styles.routeName}>{climb.routeName}</Text>}
           {!!climb.location && <Text style={styles.loc}>📍 {climb.location}</Text>}
           <Text style={styles.dateStr}>{dateStr}</Text>
         </View>
+
+        {!!climb.tags?.length && (
+          <View style={styles.tagsWrap}>
+            {climb.tags.map(t => (
+              <Text key={t} style={styles.tagPill}>{t}</Text>
+            ))}
+          </View>
+        )}
 
         <View style={styles.statsRow}>
           {[
@@ -180,4 +199,19 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   deleteText: { color: C.danger, fontSize: 14 },
+  heroBadgeRow: { flexDirection: 'row', gap: 6, marginTop: 10, alignItems: 'center' },
+  styleBadge: { color: C.text, backgroundColor: C.surfaceEl, borderWidth: 1, borderColor: C.border },
+  holdBadge: { width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: C.border },
+  countBig: { fontSize: 18, fontWeight: '700', color: C.accent, fontFamily: 'monospace', marginTop: 4 },
+  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
+  tagPill: {
+    fontSize: 12,
+    color: C.textSec,
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
 });

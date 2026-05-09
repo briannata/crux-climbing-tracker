@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Line, Path, Text as SvgText } from 'react-native-svg';
 import { GradeTag } from '@/components/grade-tag';
-import { C, GRADES, GRADE_NUM, gradeColor, type Climb } from '@/constants/climbing';
+import { C, GRADES, GRADE_NUM, climbCount, climbPyramidBucket, gradeColor, type Climb } from '@/constants/climbing';
 import { useClimbs } from '@/hooks/use-climbs';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -67,7 +67,8 @@ function Pyramid({ climbs }: { climbs: Climb[] }) {
   const counts: Record<string, number> = {};
   GRADES.forEach(g => (counts[g] = 0));
   climbs.forEach(c => {
-    if (counts[c.gradeHigh] !== undefined) counts[c.gradeHigh]++;
+    const bucket = climbPyramidBucket(c);
+    if (counts[bucket] !== undefined) counts[bucket] += climbCount(c);
   });
 
   const minIdx = Math.max(0, GRADES.findIndex(g => counts[g] > 0));
@@ -75,15 +76,20 @@ function Pyramid({ climbs }: { climbs: Climb[] }) {
   const range = GRADES.slice(minIdx, maxIdx + 1).slice().reverse();
   const maxCount = Math.max(...range.map(g => counts[g]), 1);
 
-  const gradeNums = climbs.map(c => GRADE_NUM(c.gradeHigh)).filter(n => n >= 0);
-  const avg = gradeNums.reduce((a, b) => a + b, 0) / gradeNums.length;
+  // Weighted by count, using the pyramid bucket as the canonical grade
+  const expanded = climbs.flatMap(c => {
+    const n = GRADE_NUM(climbPyramidBucket(c));
+    return n >= 0 ? Array(climbCount(c)).fill(n) : [];
+  });
+  const totalSends = expanded.length;
+  const avg = expanded.reduce((a, b) => a + b, 0) / (expanded.length || 1);
   const avgGrade = GRADES[Math.round(avg)] || '–';
-  const hardest = GRADES[Math.max(...gradeNums)] || '–';
+  const hardest = GRADES[Math.max(...expanded, 0)] || '–';
 
   return (
     <View>
       <Text style={styles.subtle}>
-        {climbs.length} total sends across {range.filter(g => counts[g] > 0).length} grade{range.filter(g => counts[g] > 0).length !== 1 ? 's' : ''}
+        {totalSends} total sends across {range.filter(g => counts[g] > 0).length} grade{range.filter(g => counts[g] > 0).length !== 1 ? 's' : ''}
       </Text>
       <View style={{ gap: 8 }}>
         {range.map(g => {
@@ -152,14 +158,20 @@ function Trend({ climbs }: { climbs: Climb[] }) {
 
   const data = months.map(mo => {
     const mc = byMonth[mo];
-    const nums = mc.map(c => GRADE_NUM(c.gradeHigh)).filter(n => n >= 0);
-    const maxN = Math.max(...nums);
-    const avgN = nums.reduce((a, b) => a + b, 0) / nums.length;
+    // For the "max" send each month, use the highest grade actually achieved (gradeHigh).
+    // For the "avg", use the pyramid bucket so range climbs don't bias upward.
+    const highs = mc.map(c => GRADE_NUM(c.gradeHigh)).filter(n => n >= 0);
+    const buckets = mc.flatMap(c => {
+      const n = GRADE_NUM(climbPyramidBucket(c));
+      return n >= 0 ? Array(climbCount(c)).fill(n) : [];
+    });
+    const maxN = Math.max(...highs);
+    const avgN = buckets.reduce((a, b) => a + b, 0) / (buckets.length || 1);
     return {
       mo,
       max: maxN,
       avg: avgN,
-      count: mc.length,
+      count: buckets.length,
       maxGrade: GRADES[maxN],
     };
   });

@@ -38,11 +38,40 @@ export type Media = {
   thumb?: string;
 };
 
+export const STYLES = ['boulder', 'top rope', 'lead'] as const;
+export type ClimbStyle = typeof STYLES[number];
+
+export const TAGS = [
+  'slab', 'vertical', 'overhung', 'roof',
+  'crimp', 'sloper', 'pinch', 'jug', 'pocket',
+  'dyno', 'compression', 'mantle', 'heel hook', 'toe hook',
+  'press', 'powerful', 'techy', 'balancy',
+] as const;
+export type ClimbTag = typeof TAGS[number];
+
+// Common hold colors found in climbing gyms
+export const HOLD_COLORS: { name: string; value: string }[] = [
+  { name: 'red', value: '#ef4444' },
+  { name: 'orange', value: '#f97316' },
+  { name: 'yellow', value: '#eab308' },
+  { name: 'green', value: '#22c55e' },
+  { name: 'blue', value: '#3b82f6' },
+  { name: 'purple', value: '#a855f7' },
+  { name: 'pink', value: '#ec4899' },
+  { name: 'black', value: '#1f2937' },
+  { name: 'white', value: '#f3f4f6' },
+  { name: 'gray', value: '#6b7280' },
+];
+
 export type Climb = {
   id: string;
   gradeLow: Grade;
   gradeHigh: Grade;
   sent: boolean;
+  style?: ClimbStyle;
+  tags?: ClimbTag[];
+  holdColor?: string;
+  count?: number; // bulk-log: how many climbs this entry represents
   routeName?: string;
   location?: string;
   notes?: string;
@@ -64,5 +93,17 @@ export const climbGradeLabel = (c: Pick<Climb, 'gradeLow' | 'gradeHigh'>) =>
 export const climbGradeColor = (c: Pick<Climb, 'gradeLow' | 'gradeHigh'>) =>
   gradeColor(c.gradeHigh);
 
+// "Best send" semantic: highest grade achieved → use high end
 export const climbGradeNum = (c: Pick<Climb, 'gradeLow' | 'gradeHigh'>) =>
   GRADE_NUM(c.gradeHigh);
+
+// Pyramid bucket: place range climbs in lower-middle bucket.
+// V4 → V4, V4-5 → V4, V4-6 → V5, V4-7 → V5, V4-8 → V6
+export const climbPyramidBucket = (c: Pick<Climb, 'gradeLow' | 'gradeHigh'>) => {
+  const lo = GRADE_NUM(c.gradeLow);
+  const hi = GRADE_NUM(c.gradeHigh);
+  const mid = Math.floor((lo + hi) / 2);
+  return GRADES[mid];
+};
+
+export const climbCount = (c: Pick<Climb, 'count'>) => c.count ?? 1;
