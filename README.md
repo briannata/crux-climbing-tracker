@@ -44,10 +44,26 @@ hooks/use-climbs.tsx   # Climbs context + AsyncStorage
 
 ```bash
 npm install
+cp .env.example .env   # then fill in Supabase URL + anon key
 npx expo start
 ```
 
 Scan the QR with [Expo Go](https://expo.dev/go) on your phone.
+
+> Without `.env`, the app runs in offline-only mode (data stays on the device).
+> With Supabase configured, climbs sync to the backend on save.
+
+## Backend setup (one‑time)
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the Supabase dashboard → **SQL Editor**, paste the contents of [`supabase/schema.sql`](supabase/schema.sql) and run it.
+3. In **Project Settings → API**, copy:
+   - Project URL → `EXPO_PUBLIC_SUPABASE_URL`
+   - `anon` public key → `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+4. Paste both into `.env` (gitignored), restart Expo.
+
+The current schema runs without auth — anyone with the anon key can read/write.
+Fine for early testing; we'll layer real auth + RLS in a later phase.
 
 ## Publishing updates
 
