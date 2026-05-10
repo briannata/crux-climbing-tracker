@@ -27,6 +27,7 @@ import {
   type Media,
 } from '@/constants/climbing';
 import { useClimbs } from '@/hooks/use-climbs';
+import { genId } from '@/lib/supabase';
 
 export default function LogScreen() {
   const { climbs, upsert } = useClimbs();
@@ -92,7 +93,7 @@ export default function LogScreen() {
   const handleSave = async () => {
     const parsedCount = parseInt(count, 10);
     const c: Climb = {
-      id: editing?.id || Date.now().toString(),
+      id: editing?.id || genId(),
       gradeLow: GRADES[lowIdx] as Grade,
       gradeHigh: GRADES[highIdx] as Grade,
       sent,

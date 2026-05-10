@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { Climb, ClimbStyle, ClimbTag, Grade } from '@/constants/climbing';
-import { isSupabaseConfigured, supabase, type DbClimb } from '@/lib/supabase';
+import { genId, isSupabaseConfigured, isUuid, supabase, type DbClimb } from '@/lib/supabase';
 import { useCurrentUser } from './use-current-user';
 
 const STORAGE_KEY = 'crux.climbs.v1';
@@ -68,7 +68,7 @@ export function ClimbsProvider({ children }: { children: React.ReactNode }) {
   const [climbs, setClimbs] = useState<Climb[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  // 1. Load cache immediately
+  // 1. Load cache immediately (this is the source of truth until proven otherwise)
   useEffect(() => {
     (async () => {
       try {
@@ -85,32 +85,57 @@ export function ClimbsProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   }, []);
 
-  // 2. When user is known + supabase configured, fetch from server, push up
-  // any local-only climbs (one-time migration), and prefer server state.
+  // 2. Sync with Supabase. Defensively: NEVER drop a local row that the
+  // server doesn't confirm — only merge in additional server rows.
   const refresh = useCallback(async () => {
     if (!user || !isSupabaseConfigured) return;
 
-    // Push any local climbs the server doesn't know about yet.
+    // Read fresh local cache (don't trust state — could be stale during init)
     const cachedRaw = await AsyncStorage.getItem(STORAGE_KEY);
-    const cached: Climb[] = cachedRaw ? JSON.parse(cachedRaw) : [];
-    if (cached.length) {
-      const rows = cached.map(c => toDb(c, user.id));
-      // Upsert handles both initial migration and edits.
-      const { error } = await supabase.from('climbs').upsert(rows, { onConflict: 'id' });
-      if (error) console.warn('[crux] climb upsert failed:', error.message);
+    let cached: Climb[] = cachedRaw ? JSON.parse(cachedRaw) : [];
+
+    // Migrate any non-UUID ids in local cache (legacy from older builds)
+    let migrated = false;
+    cached = cached.map(c => {
+      if (!isUuid(c.id)) {
+        migrated = true;
+        return { ...c, id: genId() };
+      }
+      return c;
+    });
+    if (migrated) await persistLocal(cached);
+
+    // Push every local climb individually so one bad row can't take down the batch.
+    const pushedIds = new Set<string>();
+    for (const c of cached) {
+      const { error } = await supabase
+        .from('climbs')
+        .upsert(toDb(c, user.id), { onConflict: 'id' });
+      if (error) {
+        console.warn('[crux] failed to push climb', c.id, error.message);
+      } else {
+        pushedIds.add(c.id);
+      }
     }
 
-    const { data, error } = await supabase
+    // Fetch server state for this user
+    const { data, error: fetchErr } = await supabase
       .from('climbs')
       .select('*')
       .eq('user_id', user.id)
       .order('date', { ascending: false });
-    if (error) {
-      console.warn('[crux] climbs fetch failed:', error.message);
-      return;
+    if (fetchErr) {
+      console.warn('[crux] climbs fetch failed:', fetchErr.message);
+      return; // leave local untouched
     }
-    const next = (data as DbClimb[]).map(fromDb);
-    await persistLocal(next);
+
+    const serverClimbs = (data as DbClimb[]).map(fromDb);
+    const serverIds = new Set(serverClimbs.map(c => c.id));
+
+    // Merge: take server version where it exists, but PRESERVE any local row
+    // the server doesn't know about (push must have failed). Never drop data.
+    const localOnly = cached.filter(c => !serverIds.has(c.id));
+    await persistLocal([...serverClimbs, ...localOnly]);
   }, [user, persistLocal]);
 
   useEffect(() => {
@@ -120,15 +145,17 @@ export function ClimbsProvider({ children }: { children: React.ReactNode }) {
   // ─── Mutations ───────────────────────────────────────────────────────────
   const upsert = useCallback(
     async (c: Climb) => {
-      const next = climbs.some(x => x.id === c.id)
-        ? climbs.map(x => (x.id === c.id ? c : x))
-        : [...climbs, c];
+      // Always make sure ids are UUIDs going forward.
+      const safe: Climb = isUuid(c.id) ? c : { ...c, id: genId() };
+      const next = climbs.some(x => x.id === safe.id)
+        ? climbs.map(x => (x.id === safe.id ? safe : x))
+        : [...climbs, safe];
       await persistLocal(next);
 
       if (user && isSupabaseConfigured) {
         const { error } = await supabase
           .from('climbs')
-          .upsert(toDb(c, user.id), { onConflict: 'id' });
+          .upsert(toDb(safe, user.id), { onConflict: 'id' });
         if (error) console.warn('[crux] upsert climb failed:', error.message);
       }
     },

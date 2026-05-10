@@ -37,6 +37,19 @@ export type DbUser = {
   created_at: string;
 };
 
+// ─── ID helpers ────────────────────────────────────────────────────────────
+// RFC 4122 v4 UUID. Math.random is fine for client ids; the server's the
+// source of uniqueness anyway.
+export function genId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUuid = (s: string) => UUID_RE.test(s);
+
 export type DbClimb = {
   id: string;
   user_id: string;

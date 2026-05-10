@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { isSupabaseConfigured, supabase, type DbUser } from '@/lib/supabase';
+import { genId, isSupabaseConfigured, supabase, type DbUser } from '@/lib/supabase';
 
 const STORAGE_KEY = 'crux.user.v1';
 
@@ -51,8 +51,9 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       row = { id: data.id, name: data.name, displayName: data.display_name };
     } else {
-      // Offline fallback: synthesize a UUID-like id locally
-      row = { id: crypto.randomUUID?.() || `local-${Date.now()}`, name };
+      // Offline fallback: still use a real UUID so it's interoperable
+      // when Supabase comes online later.
+      row = { id: genId(), name };
     }
 
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(row));
