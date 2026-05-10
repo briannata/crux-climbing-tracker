@@ -42,9 +42,9 @@ export const STYLES = ['boulder', 'top rope', 'lead'] as const;
 export type ClimbStyle = typeof STYLES[number];
 
 export const TAGS = [
-  'slab', 'vertical', 'overhung', 'roof',
+  'slab', 'vertical', 'overhung', 'roof', 'dihedral',
   'crimp', 'sloper', 'pinch', 'jug', 'pocket',
-  'dyno', 'compression', 'mantle', 'heel hook', 'toe hook',
+  'dyno', 'compression', 'mantle', 'heel hook', 'toe hook', 'toe foot match',
   'press', 'powerful', 'techy', 'balancy',
 ] as const;
 export type ClimbTag = typeof TAGS[number];
