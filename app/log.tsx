@@ -20,6 +20,7 @@ import {
   STYLES,
   TAGS,
   gradeColor,
+  localDateString,
   type Climb,
   type ClimbStyle,
   type ClimbTag,
@@ -82,7 +83,7 @@ export default function LogScreen() {
   const [sessions, setSessions] = useState(editing?.sessions != null ? String(editing.sessions) : '');
   const [routeMedia, setRouteMedia] = useState<Media | null>(editing?.routeMedia ?? null);
   const [climbMedia, setClimbMedia] = useState<Media | null>(editing?.climbMedia ?? null);
-  const [date, setDate] = useState(editing?.date || new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(editing?.date || localDateString());
 
   const locationSuggestions = location
     ? knownLocations.filter(

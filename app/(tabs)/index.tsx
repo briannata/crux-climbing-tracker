@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ClimbCard } from '@/components/climb-card';
-import { C, climbCount, climbGradeColor, climbGradeLabel, climbGradeNum } from '@/constants/climbing';
+import { C, climbCount, climbGradeColor, climbGradeLabel, climbGradeNum, localDateString } from '@/constants/climbing';
 import { useClimbs } from '@/hooks/use-climbs';
 
 export default function FeedScreen() {
@@ -14,7 +14,7 @@ export default function FeedScreen() {
   const maxClimb = sentClimbs.length
     ? sentClimbs.reduce((best, c) => (climbGradeNum(c) > climbGradeNum(best) ? c : best), sentClimbs[0])
     : null;
-  const monthPrefix = new Date().toISOString().slice(0, 7);
+  const monthPrefix = localDateString().slice(0, 7);
   const thisMonth = climbs.filter(c => c.date.startsWith(monthPrefix));
   const sumCount = (arr: typeof climbs) => arr.reduce((acc, c) => acc + climbCount(c), 0);
 

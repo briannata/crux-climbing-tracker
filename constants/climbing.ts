@@ -82,6 +82,14 @@ export type Climb = {
   date: string;
 };
 
+/** Local-timezone YYYY-MM-DD for the given Date (defaults to now). */
+export const localDateString = (d: Date = new Date()) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 export const formatGradeRange = (low: string, high: string) => {
   if (low === high) return low;
   return `${low}-${high.replace(/^V/, '')}`;
