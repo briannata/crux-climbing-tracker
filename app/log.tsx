@@ -14,17 +14,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MediaPicker } from '@/components/photo-picker';
 import {
   C,
-  GRADES,
-  GRADE_NUM,
   HOLD_COLORS,
   STYLES,
   TAGS,
+  basesForStyle,
+  composeGrade,
   gradeColor,
+  gradeSystemForStyle,
   localDateString,
+  modifiersForBase,
+  parseGrade,
   type Climb,
   type ClimbStyle,
   type ClimbTag,
-  type Grade,
   type Media,
 } from '@/constants/climbing';
 import { useClimbs } from '@/hooks/use-climbs';
@@ -49,12 +51,42 @@ export default function LogScreen() {
     [climbs]
   );
 
-  const initLow = GRADE_NUM(editing?.gradeLow || 'V4');
-  const initHigh = GRADE_NUM(editing?.gradeHigh || 'V4');
-  const [lowIdx, setLowIdx] = useState(initLow);
-  const [highIdx, setHighIdx] = useState(initHigh);
-  const [sent, setSent] = useState(editing?.sent ?? true);
   const [style, setStyle] = useState<ClimbStyle | undefined>(editing?.style ?? 'boulder');
+
+  // Grades are now style-aware. When style switches, snap to a sensible default.
+  const bases = basesForStyle(style);
+  const initialBaseLow = parseGrade(editing?.gradeLow ?? '').base;
+  const initialBaseHigh = parseGrade(editing?.gradeHigh ?? '').base;
+  const initialMod = parseGrade(editing?.gradeLow ?? '').mod;
+
+  const defaultBase = (sys: ClimbStyle | undefined) =>
+    gradeSystemForStyle(sys) === 'YDS' ? '5.9' : 'V4';
+
+  const [lowIdx, setLowIdx] = useState(() => {
+    const idx = bases.indexOf(initialBaseLow);
+    return idx >= 0 ? idx : Math.max(0, bases.indexOf(defaultBase(style)));
+  });
+  const [highIdx, setHighIdx] = useState(() => {
+    const idx = bases.indexOf(initialBaseHigh);
+    return idx >= 0 ? idx : Math.max(0, bases.indexOf(defaultBase(style)));
+  });
+  const [modifier, setModifier] = useState<string>(initialMod);
+
+  const isRange = lowIdx !== highIdx;
+  const activeBase = bases[highIdx] ?? defaultBase(style);
+  const availableMods = modifiersForBase(activeBase);
+
+  // When style flips, reset grade selection to the default for that system.
+  const onChangeStyle = (s: ClimbStyle) => {
+    setStyle(s);
+    const next = basesForStyle(s);
+    const def = next.indexOf(defaultBase(s));
+    setLowIdx(def);
+    setHighIdx(def);
+    setModifier('');
+  };
+
+  const [sent, setSent] = useState(editing?.sent ?? true);
   const [tags, setTags] = useState<ClimbTag[]>(editing?.tags ?? []);
   const [holdColor, setHoldColor] = useState<string | undefined>(editing?.holdColor);
   const [count, setCount] = useState(editing?.count != null ? String(editing.count) : '1');
@@ -70,6 +102,10 @@ export default function LogScreen() {
     } else {
       setLowIdx(i);
       setHighIdx(i);
+    }
+    // Reset modifier when switching base — it might not apply to the new base.
+    if (modifier && !modifiersForBase(bases[i]).includes(modifier)) {
+      setModifier('');
     }
   };
 
@@ -93,10 +129,13 @@ export default function LogScreen() {
 
   const handleSave = async () => {
     const parsedCount = parseInt(count, 10);
+    // Modifier only applies when low === high (single grade).
+    const composedLow = isRange ? bases[lowIdx] : composeGrade(bases[lowIdx], modifier);
+    const composedHigh = isRange ? bases[highIdx] : composeGrade(bases[highIdx], modifier);
     const c: Climb = {
       id: editing?.id || genId(),
-      gradeLow: GRADES[lowIdx] as Grade,
-      gradeHigh: GRADES[highIdx] as Grade,
+      gradeLow: composedLow,
+      gradeHigh: composedHigh,
       sent,
       style,
       tags: tags.length ? tags : undefined,
@@ -136,7 +175,7 @@ export default function LogScreen() {
                 return (
                   <Pressable
                     key={s}
-                    onPress={() => setStyle(s)}
+                    onPress={() => onChangeStyle(s)}
                     style={[
                       styles.chip,
                       {
@@ -161,7 +200,7 @@ export default function LogScreen() {
 
           <Field label="Grade (tap adjacent grades to make a range)">
             <View style={styles.gradeWrap}>
-              {GRADES.map((g, i) => {
+              {bases.map((g, i) => {
                 const sel = i >= lowIdx && i <= highIdx;
                 const col = gradeColor(g);
                 return (
@@ -189,6 +228,61 @@ export default function LogScreen() {
                 );
               })}
             </View>
+            {!isRange && availableMods.length > 0 && (
+              <View style={[styles.chipRow, { marginTop: 10 }]}>
+                <Pressable
+                  onPress={() => setModifier('')}
+                  style={[
+                    styles.modChip,
+                    {
+                      backgroundColor: modifier === '' ? C.accentDim : C.surfaceEl,
+                      borderColor: modifier === '' ? C.accent : C.border,
+                      borderWidth: modifier === '' ? 1.5 : 1,
+                    },
+                  ]}>
+                  <Text
+                    style={{
+                      color: modifier === '' ? C.accent : C.textSec,
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      fontWeight: modifier === '' ? '700' : '400',
+                    }}>
+                    none
+                  </Text>
+                </Pressable>
+                {availableMods.map(m => {
+                  const sel = modifier === m;
+                  return (
+                    <Pressable
+                      key={m}
+                      onPress={() => setModifier(m)}
+                      style={[
+                        styles.modChip,
+                        {
+                          backgroundColor: sel ? C.accentDim : C.surfaceEl,
+                          borderColor: sel ? C.accent : C.border,
+                          borderWidth: sel ? 1.5 : 1,
+                        },
+                      ]}>
+                      <Text
+                        style={{
+                          color: sel ? C.accent : C.textSec,
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          fontWeight: sel ? '700' : '400',
+                        }}>
+                        {m}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+            <Text style={styles.gradePreview}>
+              {isRange
+                ? `${bases[lowIdx]}—${bases[highIdx]}`
+                : composeGrade(bases[lowIdx], modifier)}
+            </Text>
           </Field>
 
           <Field label="Hold color">
@@ -417,6 +511,13 @@ const styles = StyleSheet.create({
   },
   gradeWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   gradeBtn: { borderRadius: 8, paddingHorizontal: 11, paddingVertical: 6 },
+  modChip: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, minWidth: 36, alignItems: 'center' },
+  gradePreview: {
+    marginTop: 10,
+    fontSize: 12,
+    color: C.textSec,
+    fontFamily: 'monospace',
+  },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, alignItems: 'center' },
   chip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
   tagChip: { borderRadius: 16, paddingHorizontal: 11, paddingVertical: 5 },

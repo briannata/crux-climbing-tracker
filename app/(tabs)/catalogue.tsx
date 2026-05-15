@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ClimbCard } from '@/components/climb-card';
-import { C, GRADES, GRADE_NUM, climbGradeLabel, gradeColor } from '@/constants/climbing';
+import { C, basesForStyle, climbGradeLabel, gradeColor, gradeOrder, parseGrade } from '@/constants/climbing';
 import { useClimbs } from '@/hooks/use-climbs';
 
 export default function CatalogueScreen() {
@@ -12,22 +12,30 @@ export default function CatalogueScreen() {
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
 
+  // Collect all base grades covered by climbs (across systems), ordered.
   const usedGrades = [
     ...new Set(
       climbs.flatMap(c => {
-        const lo = GRADE_NUM(c.gradeLow);
-        const hi = GRADE_NUM(c.gradeHigh);
-        return GRADES.slice(lo, hi + 1);
+        const lo = parseGrade(c.gradeLow);
+        const hi = parseGrade(c.gradeHigh);
+        if (lo.system !== hi.system) return [lo.base, hi.base];
+        const bases = basesForStyle(lo.system === 'YDS' ? 'lead' : 'boulder');
+        const loIdx = bases.indexOf(lo.base);
+        const hiIdx = bases.indexOf(hi.base);
+        if (loIdx === -1 || hiIdx === -1) return [lo.base, hi.base];
+        return bases.slice(loIdx, hiIdx + 1);
       })
     ),
-  ].sort((a, b) => GRADE_NUM(a) - GRADE_NUM(b));
+  ].sort((a, b) => gradeOrder(a) - gradeOrder(b));
 
   const q = search.toLowerCase();
   const filtered = climbs
     .filter(c => {
       if (filter === 'all') return true;
-      const f = GRADE_NUM(filter);
-      return f >= GRADE_NUM(c.gradeLow) && f <= GRADE_NUM(c.gradeHigh);
+      const fOrd = gradeOrder(filter);
+      const loBase = parseGrade(c.gradeLow).base;
+      const hiBase = parseGrade(c.gradeHigh).base;
+      return fOrd >= gradeOrder(loBase) && fOrd <= gradeOrder(hiBase);
     })
     .filter(c => {
       if (!q) return true;
