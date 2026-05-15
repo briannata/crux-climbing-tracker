@@ -40,22 +40,21 @@ export function MediaView({ media, style, expandable = true }: Props) {
         visible={open}
         transparent
         animationType="fade"
-        onRequestClose={() => setOpen(false)}
-        statusBarTranslucent>
-        <View style={styles.modalBg}>
-          <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
+        onRequestClose={() => setOpen(false)}>
+        <SafeAreaView style={styles.modalBg} edges={['top', 'bottom']}>
+          <View style={styles.modalHeader}>
             <Pressable onPress={() => setOpen(false)} hitSlop={20} style={styles.close}>
               <Text style={styles.closeText}>✕</Text>
             </Pressable>
-            <View style={styles.modalContent}>
-              {media.kind === 'video' ? (
-                <VideoBlock uri={media.uri} style={styles.full} fullscreen />
-              ) : (
-                <Image source={{ uri: media.uri }} style={styles.full} resizeMode="contain" />
-              )}
-            </View>
-          </SafeAreaView>
-        </View>
+          </View>
+          <View style={styles.modalContent}>
+            {media.kind === 'video' ? (
+              <VideoBlock uri={media.uri} style={styles.full} fullscreen />
+            ) : (
+              <Image source={{ uri: media.uri }} style={styles.full} resizeMode="contain" />
+            )}
+          </View>
+        </SafeAreaView>
       </Modal>
     </>
   );
@@ -90,16 +89,17 @@ function VideoBlock({
 const styles = StyleSheet.create({
   base: { borderRadius: 12, overflow: 'hidden', backgroundColor: C.surfaceEl },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
-  modalSafe: { flex: 1 },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
   close: {
-    position: 'absolute',
-    top: 12,
-    right: 16,
-    zIndex: 10,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
