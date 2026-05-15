@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { DateField } from '@/components/date-field';
 import { MediaPicker } from '@/components/photo-picker';
 import {
   C,
@@ -366,13 +367,7 @@ export default function LogScreen() {
           </Field>
 
           <Field label="Date">
-            <TextInput
-              value={date}
-              onChangeText={setDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={C.textMuted}
-              style={styles.input}
-            />
+            <DateField value={date} onChange={setDate} />
           </Field>
 
           <Field label="Route Name (optional)">

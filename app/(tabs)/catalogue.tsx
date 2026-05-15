@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ClimbCard } from '@/components/climb-card';
+import { DateField } from '@/components/date-field';
 import {
   C,
   basesForStyle,
@@ -182,19 +183,19 @@ export default function CatalogueScreen() {
 
             <Text style={[styles.filterLabel, { marginTop: 12 }]}>Date range</Text>
             <View style={styles.dateRow}>
-              <TextInput
+              <DateField
                 value={dateFrom}
-                onChangeText={setDateFrom}
-                placeholder="From YYYY-MM-DD"
-                placeholderTextColor={C.textMuted}
-                style={[styles.dateInput, { flex: 1 }]}
+                onChange={setDateFrom}
+                placeholder="From"
+                allowClear
+                style={{ flex: 1 }}
               />
-              <TextInput
+              <DateField
                 value={dateTo}
-                onChangeText={setDateTo}
-                placeholder="To YYYY-MM-DD"
-                placeholderTextColor={C.textMuted}
-                style={[styles.dateInput, { flex: 1 }]}
+                onChange={setDateTo}
+                placeholder="To"
+                allowClear
+                style={{ flex: 1 }}
               />
             </View>
           </View>
