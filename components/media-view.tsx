@@ -10,7 +10,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, type Media } from '@/constants/climbing';
 
 type Props = {
@@ -22,6 +22,7 @@ type Props = {
 
 export function MediaView({ media, style, expandable = true }: Props) {
   const [open, setOpen] = useState(false);
+  const insets = useSafeAreaInsets();
   const Content =
     media.kind === 'video' ? (
       <VideoBlock uri={media.uri} style={style} />
@@ -41,20 +42,24 @@ export function MediaView({ media, style, expandable = true }: Props) {
         transparent
         animationType="fade"
         onRequestClose={() => setOpen(false)}>
-        <SafeAreaView style={styles.modalBg} edges={['top', 'bottom']}>
-          <View style={styles.modalHeader}>
+        <View style={styles.modalBg}>
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 8 }]}>
             <Pressable onPress={() => setOpen(false)} hitSlop={20} style={styles.close}>
               <Text style={styles.closeText}>✕</Text>
             </Pressable>
           </View>
-          <View style={styles.modalContent}>
-            {media.kind === 'video' ? (
+          {media.kind === 'video' ? (
+            <View style={[styles.modalContent, { paddingBottom: insets.bottom }]}>
               <VideoBlock uri={media.uri} style={styles.full} fullscreen />
-            ) : (
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => setOpen(false)}
+              style={[styles.modalContent, { paddingBottom: insets.bottom }]}>
               <Image source={{ uri: media.uri }} style={styles.full} resizeMode="contain" />
-            )}
-          </View>
-        </SafeAreaView>
+            </Pressable>
+          )}
+        </View>
       </Modal>
     </>
   );
