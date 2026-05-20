@@ -89,6 +89,58 @@ export function gradeOrder(g: string): number {
 /** Legacy index lookup (only used for V-system pickers). */
 export const GRADE_NUM = (g: string) => V_BASES.indexOf(g as Grade);
 
+/**
+ * Unified difficulty score on a single axis (≈ YDS-numeric).
+ * Lets us compare a V grade to a YDS grade — used by "Best Send" overall.
+ * Based on the common V↔YDS conversion (V0 ≈ 5.10a-b, V5 ≈ 5.12d-5.13a, ...).
+ */
+export function gradeDifficulty(g: string): number {
+  const { system, base, mod } = parseGrade(g);
+
+  if (system === 'V') {
+    // Midpoint of the YDS-equivalent range for each V grade
+    const V_MIDS: Record<string, number> = {
+      VB:  8.0,   // 5.8
+      V0:  10.125, // 5.10a-b
+      V1:  10.75,  // 5.10d
+      V2:  11.375, // 5.11b-c
+      V3:  11.875, // 5.11d-5.12a
+      V4:  12.375, // 5.12b-c
+      V5:  12.875, // 5.12d-5.13a
+      V6:  13.25,  // 5.13b
+      V7:  13.625, // 5.13c-d
+      V8:  14.0,   // 5.14a
+      V9:  14.25,  // 5.14b
+    };
+    let mid = V_MIDS[base];
+    if (mid === undefined) {
+      const n = base === 'VB' ? -1 : Number(base.slice(1));
+      if (!isNaN(n) && n >= 10) mid = 14.5 + (n - 10) * 0.25; // extrapolate
+      else mid = 8.0;
+    }
+    const offset = mod === '+' ? 0.125 : mod === '-' ? -0.125 : 0;
+    return mid + offset;
+  }
+
+  // YDS
+  const m = base.match(/^5\.(\d+)$/);
+  if (!m) return -9999;
+  const n = Number(m[1]);
+  if (n >= 10) {
+    if (mod === 'a') return n + 0;
+    if (mod === 'b') return n + 0.25;
+    if (mod === 'c') return n + 0.5;
+    if (mod === 'd') return n + 0.75;
+    if (mod === '-') return n + 0;
+    if (mod === '+') return n + 0.75;
+    return n + 0.375;
+  }
+  // 5.5–5.9
+  if (mod === '+') return n + 0.5;
+  if (mod === '-') return n - 0.5;
+  return n;
+}
+
 // ─── Colors ────────────────────────────────────────────────────────────────
 
 const V_PALETTE: Record<string, string> = {

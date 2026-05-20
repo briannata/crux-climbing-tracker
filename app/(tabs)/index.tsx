@@ -7,6 +7,7 @@ import {
   climbCount,
   climbGradeColor,
   climbGradeLabel,
+  gradeDifficulty,
   gradeOrder,
   localDateString,
   parseGrade,
@@ -23,12 +24,16 @@ export default function FeedScreen() {
   const sentBoulder = sent.filter(c => parseGrade(c.gradeHigh).system === 'V');
   const sentRoutes = sent.filter(c => parseGrade(c.gradeHigh).system === 'YDS');
 
-  const best = (arr: Climb[]) =>
+  // Within a system, use gradeOrder. Across systems, use gradeDifficulty
+  // (which converts V↔YDS so we can compare).
+  const bestBy = (arr: Climb[], score: (g: string) => number) =>
     arr.length
-      ? arr.reduce((b, c) => (gradeOrder(c.gradeHigh) > gradeOrder(b.gradeHigh) ? c : b), arr[0])
+      ? arr.reduce((b, c) => (score(c.gradeHigh) > score(b.gradeHigh) ? c : b), arr[0])
       : null;
-  const bestB = best(sentBoulder);
-  const bestR = best(sentRoutes);
+  const bestB = bestBy(sentBoulder, gradeOrder);
+  const bestR = bestBy(sentRoutes, gradeOrder);
+  const bestOverall = bestBy(sent, gradeDifficulty);
+  const bothSystems = sentBoulder.length > 0 && sentRoutes.length > 0;
 
   const monthPrefix = localDateString().slice(0, 7);
   const thisMonth = climbs.filter(c => c.date.startsWith(monthPrefix));
@@ -38,24 +43,35 @@ export default function FeedScreen() {
     { label: 'Total Climbs', value: String(sumCount(climbs)), color: C.text },
     { label: 'This Month', value: String(sumCount(thisMonth)), color: C.text },
   ];
-  if (bestB) {
+  if (bestOverall) {
     stats.push({
-      label: 'Best Boulder',
-      value: climbGradeLabel(bestB),
-      color: climbGradeColor(bestB),
+      label: 'Best Send',
+      value: climbGradeLabel(bestOverall),
+      color: climbGradeColor(bestOverall),
       small: true,
     });
-  }
-  if (bestR) {
-    stats.push({
-      label: 'Best Route',
-      value: climbGradeLabel(bestR),
-      color: climbGradeColor(bestR),
-      small: true,
-    });
-  }
-  if (!bestB && !bestR) {
+  } else {
     stats.push({ label: 'Best Send', value: '–', color: C.text, small: true });
+  }
+  // Only break out per-system when there are climbs in both — otherwise
+  // Best Send already is the per-system best.
+  if (bothSystems) {
+    if (bestB) {
+      stats.push({
+        label: 'Best Boulder',
+        value: climbGradeLabel(bestB),
+        color: climbGradeColor(bestB),
+        small: true,
+      });
+    }
+    if (bestR) {
+      stats.push({
+        label: 'Best Route',
+        value: climbGradeLabel(bestR),
+        color: climbGradeColor(bestR),
+        small: true,
+      });
+    }
   }
 
   return (
