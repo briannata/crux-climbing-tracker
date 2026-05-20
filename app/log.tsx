@@ -121,6 +121,7 @@ export default function LogScreen() {
   const [routeMedia, setRouteMedia] = useState<Media | null>(editing?.routeMedia ?? null);
   const [climbMedia, setClimbMedia] = useState<Media | null>(editing?.climbMedia ?? null);
   const [date, setDate] = useState(editing?.date || localDateString());
+  const [saving, setSaving] = useState(false);
 
   const locationSuggestions = location
     ? knownLocations.filter(
@@ -129,6 +130,8 @@ export default function LogScreen() {
     : [];
 
   const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
     const parsedCount = parseInt(count, 10);
     // Modifier only applies when low === high (single grade).
     const composedLow = isRange ? bases[lowIdx] : composeGrade(bases[lowIdx], modifier);
@@ -151,8 +154,13 @@ export default function LogScreen() {
       climbMedia,
       date,
     };
-    await upsert(c);
-    router.back();
+    try {
+      await upsert(c);
+      router.back();
+    } catch (e) {
+      console.warn('[crux] save failed', e);
+      setSaving(false);
+    }
   };
 
   return (
@@ -163,8 +171,10 @@ export default function LogScreen() {
             <Text style={styles.cancel}>Cancel</Text>
           </Pressable>
           <Text style={styles.title}>{editing ? 'Edit Climb' : 'Log a Climb'}</Text>
-          <Pressable onPress={handleSave}>
-            <Text style={styles.save}>Save</Text>
+          <Pressable onPress={handleSave} disabled={saving}>
+            <Text style={[styles.save, saving && { opacity: 0.4 }]}>
+              {saving ? 'Saving…' : 'Save'}
+            </Text>
           </Pressable>
         </View>
 
@@ -455,8 +465,13 @@ export default function LogScreen() {
             <Text style={styles.hint}>Long-press to remove.</Text>
           </Field>
 
-          <Pressable onPress={handleSave} style={styles.cta}>
-            <Text style={styles.ctaText}>{editing ? 'Update Climb' : '🧗 Log Climb'}</Text>
+          <Pressable
+            onPress={handleSave}
+            disabled={saving}
+            style={[styles.cta, saving && { opacity: 0.5 }]}>
+            <Text style={styles.ctaText}>
+              {saving ? 'Saving…' : editing ? 'Update Climb' : '🧗 Log Climb'}
+            </Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>

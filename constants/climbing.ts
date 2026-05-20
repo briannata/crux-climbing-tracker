@@ -215,34 +215,20 @@ export const climbGradeNum = (c: Pick<Climb, 'gradeLow' | 'gradeHigh'>) =>
   gradeOrder(c.gradeHigh);
 
 /**
- * Pyramid bucket. For ranges, pick the lower-middle (so V4-6 → V5, V4-5 → V4).
- * Returns the COMPOSED grade closest to the midpoint, chosen from the
- * relevant base list.
+ * Pyramid bucket — always a BASE grade (no modifier). V5+, V5, V5- all
+ * collapse to V5. For ranges, pick the lower-middle base.
  */
 export function climbPyramidBucket(c: Pick<Climb, 'gradeLow' | 'gradeHigh'>): string {
-  if (c.gradeLow === c.gradeHigh) return c.gradeLow;
-  const lo = gradeOrder(c.gradeLow);
-  const hi = gradeOrder(c.gradeHigh);
-  const target = (lo + hi) / 2;
-  // Snap target to the closest base grade in the same system.
+  const loBase = parseGrade(c.gradeLow).base;
+  const hiBase = parseGrade(c.gradeHigh).base;
+  if (loBase === hiBase) return loBase;
   const sys = parseGrade(c.gradeHigh).system;
-  const bases = sys === 'YDS' ? YDS_BASES : V_BASES;
-  let best = bases[0] as string;
-  let bestDist = Math.abs(gradeOrder(best) - target);
-  for (const b of bases) {
-    const d = Math.abs(gradeOrder(b) - target);
-    // Prefer the lower of two equidistant options
-    if (d < bestDist - 1e-9 || (Math.abs(d - bestDist) < 1e-9 && gradeOrder(b) < gradeOrder(best))) {
-      best = b;
-      bestDist = d;
-    }
-  }
-  // Bias to the lower of the two when target is exactly between two bases
-  if (Math.floor(target) !== Math.ceil(target)) {
-    const lower = bases.find(b => Math.abs(gradeOrder(b) - Math.floor(target)) < 0.01);
-    if (lower) return lower;
-  }
-  return best;
+  const bases: readonly string[] = sys === 'YDS' ? YDS_BASES : V_BASES;
+  const loIdx = bases.indexOf(loBase);
+  const hiIdx = bases.indexOf(hiBase);
+  if (loIdx === -1 || hiIdx === -1) return hiBase;
+  // Lower-middle: floor((lo+hi)/2). E.g. V4-V5 → V4, V4-V6 → V5.
+  return bases[Math.floor((loIdx + hiIdx) / 2)] ?? hiBase;
 }
 
 export const climbCount = (c: Pick<Climb, 'count'>) => c.count ?? 1;

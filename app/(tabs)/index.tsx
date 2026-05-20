@@ -2,7 +2,16 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ClimbCard } from '@/components/climb-card';
-import { C, climbCount, climbGradeColor, climbGradeLabel, climbGradeNum, localDateString } from '@/constants/climbing';
+import {
+  C,
+  climbCount,
+  climbGradeColor,
+  climbGradeLabel,
+  gradeOrder,
+  localDateString,
+  parseGrade,
+  type Climb,
+} from '@/constants/climbing';
 import { useClimbs } from '@/hooks/use-climbs';
 
 export default function FeedScreen() {
@@ -10,19 +19,44 @@ export default function FeedScreen() {
   const router = useRouter();
 
   const sorted = [...climbs].sort((a, b) => b.date.localeCompare(a.date));
-  const sentClimbs = climbs.filter(c => c.sent);
-  const maxClimb = sentClimbs.length
-    ? sentClimbs.reduce((best, c) => (climbGradeNum(c) > climbGradeNum(best) ? c : best), sentClimbs[0])
-    : null;
+  const sent = climbs.filter(c => c.sent);
+  const sentBoulder = sent.filter(c => parseGrade(c.gradeHigh).system === 'V');
+  const sentRoutes = sent.filter(c => parseGrade(c.gradeHigh).system === 'YDS');
+
+  const best = (arr: Climb[]) =>
+    arr.length
+      ? arr.reduce((b, c) => (gradeOrder(c.gradeHigh) > gradeOrder(b.gradeHigh) ? c : b), arr[0])
+      : null;
+  const bestB = best(sentBoulder);
+  const bestR = best(sentRoutes);
+
   const monthPrefix = localDateString().slice(0, 7);
   const thisMonth = climbs.filter(c => c.date.startsWith(monthPrefix));
   const sumCount = (arr: typeof climbs) => arr.reduce((acc, c) => acc + climbCount(c), 0);
 
-  const stats = [
-    { label: 'Total Climbs', value: String(sumCount(climbs)), color: C.text, small: false },
-    { label: 'This Month', value: String(sumCount(thisMonth)), color: C.text, small: false },
-    { label: 'Best Send', value: maxClimb ? climbGradeLabel(maxClimb) : '–', color: maxClimb ? climbGradeColor(maxClimb) : C.text, small: true },
+  const stats: { label: string; value: string; color: string; small?: boolean }[] = [
+    { label: 'Total Climbs', value: String(sumCount(climbs)), color: C.text },
+    { label: 'This Month', value: String(sumCount(thisMonth)), color: C.text },
   ];
+  if (bestB) {
+    stats.push({
+      label: 'Best Boulder',
+      value: climbGradeLabel(bestB),
+      color: climbGradeColor(bestB),
+      small: true,
+    });
+  }
+  if (bestR) {
+    stats.push({
+      label: 'Best Route',
+      value: climbGradeLabel(bestR),
+      color: climbGradeColor(bestR),
+      small: true,
+    });
+  }
+  if (!bestB && !bestR) {
+    stats.push({ label: 'Best Send', value: '–', color: C.text, small: true });
+  }
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -38,14 +72,24 @@ export default function FeedScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.statsRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.statsRow}>
         {stats.map(s => (
           <View key={s.label} style={styles.statCard}>
-            <Text style={[styles.statValue, s.small && { fontSize: 18 }, { color: s.color }]}>{s.value}</Text>
+            <Text
+              style={[
+                styles.statValue,
+                s.small && { fontSize: 18, fontFamily: 'monospace' },
+                { color: s.color },
+              ]}>
+              {s.value}
+            </Text>
             <Text style={styles.statLabel}>{s.label}</Text>
           </View>
         ))}
-      </View>
+      </ScrollView>
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.sectionLabel}>Recent Climbs</Text>
@@ -91,16 +135,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   logBtnText: { color: '#16130e', fontWeight: '700', fontSize: 14 },
-  statsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 8 },
+  statsRow: { gap: 10, paddingHorizontal: 20, paddingVertical: 8 },
   statCard: {
-    flex: 1,
     backgroundColor: C.surface,
     borderRadius: 12,
     paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: C.border,
     alignItems: 'center',
+    minWidth: 96,
   },
   statValue: { fontSize: 20, fontWeight: '700' },
   statLabel: { fontSize: 10, color: C.textSec, marginTop: 2 },
