@@ -30,6 +30,7 @@ create table if not exists climbs (
   count integer default 1,
   route_name text,
   location text,
+  setter text,
   notes text,
   attempts integer,
   sessions integer,
@@ -42,6 +43,9 @@ create table if not exists climbs (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Migration for databases created before `setter` existed.
+alter table climbs add column if not exists setter text;
 
 create index if not exists climbs_user_id_idx on climbs (user_id);
 create index if not exists climbs_date_idx on climbs (date desc);

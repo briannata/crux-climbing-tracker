@@ -62,6 +62,7 @@ export type DbClimb = {
   count: number | null;
   route_name: string | null;
   location: string | null;
+  setter: string | null;
   notes: string | null;
   attempts: number | null;
   sessions: number | null;

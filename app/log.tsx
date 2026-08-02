@@ -52,6 +52,12 @@ export default function LogScreen() {
     [climbs]
   );
 
+  // Setters seen before, most-recently-used first — same idea as locations.
+  const knownSetters = useMemo(() => {
+    const sorted = [...climbs].sort((a, b) => b.date.localeCompare(a.date));
+    return [...new Set(sorted.map(c => c.setter).filter((x): x is string => !!x))];
+  }, [climbs]);
+
   const [style, setStyle] = useState<ClimbStyle | undefined>(editing?.style ?? 'boulder');
 
   // Grades are now style-aware. When style switches, snap to a sensible default.
@@ -115,6 +121,7 @@ export default function LogScreen() {
 
   const [routeName, setRouteName] = useState(editing?.routeName || '');
   const [location, setLocation] = useState(editing?.location ?? lastLocation);
+  const [setter, setSetter] = useState(editing?.setter || '');
   const [notes, setNotes] = useState(editing?.notes || '');
   const [attempts, setAttempts] = useState(editing?.attempts != null ? String(editing.attempts) : '');
   const [sessions, setSessions] = useState(editing?.sessions != null ? String(editing.sessions) : '');
@@ -128,6 +135,12 @@ export default function LogScreen() {
         l => l.toLowerCase().includes(location.toLowerCase()) && l !== location
       )
     : [];
+
+  // Unlike location, show the full list when the field is empty — setters are
+  // a short, recurring cast and tapping beats typing.
+  const setterSuggestions = setter
+    ? knownSetters.filter(s => s.toLowerCase().includes(setter.toLowerCase()) && s !== setter)
+    : knownSetters;
 
   const handleSave = async () => {
     if (saving) return;
@@ -147,6 +160,7 @@ export default function LogScreen() {
       count: !isNaN(parsedCount) && parsedCount > 1 ? parsedCount : undefined,
       routeName: routeName || undefined,
       location: location || undefined,
+      setter: setter.trim() || undefined,
       notes: notes || undefined,
       attempts: attempts !== '' ? parseInt(attempts, 10) : null,
       sessions: sessions !== '' ? parseInt(sessions, 10) : null,
@@ -409,6 +423,38 @@ export default function LogScreen() {
             )}
           </Field>
 
+          <Field label="Set by (optional)">
+            <TextInput
+              value={setter}
+              onChangeText={setSetter}
+              placeholder="e.g. Josh"
+              placeholderTextColor={C.textMuted}
+              autoCapitalize="words"
+              autoCorrect={false}
+              style={styles.input}
+            />
+            {setterSuggestions.length > 0 && (
+              <View style={[styles.chipRow, { marginTop: 8 }]}>
+                {setterSuggestions.slice(0, 8).map(s => (
+                  <Pressable
+                    key={s}
+                    onPress={() => setSetter(s)}
+                    style={[
+                      styles.tagChip,
+                      { backgroundColor: C.surfaceEl, borderColor: C.border, borderWidth: 1 },
+                    ]}>
+                    <Text style={{ color: C.textSec, fontSize: 12 }}>{s}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            {!!setter && (
+              <Pressable onPress={() => setSetter('')} hitSlop={8}>
+                <Text style={styles.hint}>Clear setter</Text>
+              </Pressable>
+            )}
+          </Field>
+
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={{ flex: 1 }}>
               <Field label="Attempts">
@@ -552,7 +598,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  ctaText: { color: '#16130e', fontSize: 16, fontWeight: '700' },
+  ctaText: { color: C.onAccent, fontSize: 16, fontWeight: '700' },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   checkbox: {
     width: 24,
@@ -565,7 +611,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOn: { backgroundColor: C.accent, borderColor: C.accent },
-  checkmark: { color: '#16130e', fontSize: 16, fontWeight: '700' },
+  checkmark: { color: C.onAccent, fontSize: 16, fontWeight: '700' },
   checkLabel: { color: C.text, fontSize: 15 },
   suggestWrap: {
     marginTop: 4,

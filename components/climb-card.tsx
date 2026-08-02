@@ -38,6 +38,9 @@ export function ClimbCard({ climb, onPress }: { climb: Climb; onPress: () => voi
         {!!climb.location && (
           <Text style={styles.location} numberOfLines={1}>📍 {climb.location}</Text>
         )}
+        {!!climb.setter && (
+          <Text style={styles.location} numberOfLines={1}>🔧 set by {climb.setter}</Text>
+        )}
         <View style={styles.metaRow}>
           {climb.attempts != null && (
             <Text style={styles.meta}>{climb.attempts} attempt{climb.attempts !== 1 ? 's' : ''}</Text>

@@ -79,6 +79,7 @@ export default function ClimbDetailScreen() {
           </View>
           {!!climb.routeName && <Text style={styles.routeName}>{climb.routeName}</Text>}
           {!!climb.location && <Text style={styles.loc}>📍 {climb.location}</Text>}
+          {!!climb.setter && <Text style={styles.setter}>🔧 Set by {climb.setter}</Text>}
           <Text style={styles.dateStr}>{dateStr}</Text>
         </View>
 
@@ -154,10 +155,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     overflow: 'hidden',
   },
-  statusSent: { color: '#16130e', backgroundColor: C.accent },
+  statusSent: { color: C.onAccent, backgroundColor: C.accent },
   statusAttempt: { color: C.textSec, backgroundColor: C.surfaceEl, borderWidth: 1, borderColor: C.border },
   routeName: { fontSize: 20, fontWeight: '700', color: C.text, marginTop: 8 },
   loc: { fontSize: 13, color: C.textSec, marginTop: 4 },
+  setter: { fontSize: 13, color: C.accentBright, marginTop: 4 },
   dateStr: { fontSize: 12, color: C.textMuted, marginTop: 6 },
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   statCard: {
