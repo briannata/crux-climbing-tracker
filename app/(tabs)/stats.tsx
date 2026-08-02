@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,13 +16,22 @@ import {
   type Climb,
   type GradeSystem,
 } from '@/constants/climbing';
+import { monthlyWrapped } from '@/constants/wrapped';
 import { useClimbs } from '@/hooks/use-climbs';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+type Tab = 'pyramid' | 'trend' | 'monthly';
+
+const TAB_LABELS: Record<Tab, string> = {
+  pyramid: 'Pyramid',
+  trend: 'Trend',
+  monthly: 'Monthly',
+};
+
 export default function StatsScreen() {
   const { climbs } = useClimbs();
-  const [tab, setTab] = useState<'pyramid' | 'trend'>('pyramid');
+  const [tab, setTab] = useState<Tab>('pyramid');
 
   const sent = climbs.filter(c => c.sent);
   const boulderClimbs = useMemo(
@@ -38,7 +48,7 @@ export default function StatsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Stats</Text>
         <View style={styles.tabRow}>
-          {(['pyramid', 'trend'] as const).map(key => {
+          {(['pyramid', 'trend', 'monthly'] as const).map(key => {
             const sel = tab === key;
             return (
               <Pressable
@@ -53,7 +63,7 @@ export default function StatsScreen() {
                   },
                 ]}>
                 <Text style={{ color: sel ? C.accent : C.textSec, fontSize: 13, fontWeight: sel ? '700' : '400' }}>
-                  {key === 'pyramid' ? 'Grade Pyramid' : 'Trend'}
+                  {TAB_LABELS[key]}
                 </Text>
               </Pressable>
             );
@@ -62,36 +72,44 @@ export default function StatsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.sentNote}>Stats include sent climbs only.</Text>
-
-        {sent.length === 0 && <Empty />}
-
-        {tab === 'pyramid' ? (
-          <>
-            {boulderClimbs.length > 0 && (
-              <Section title="Boulder">
-                <Pyramid climbs={boulderClimbs} system="V" />
-              </Section>
-            )}
-            {routeClimbs.length > 0 && (
-              <Section title="Top rope / Lead">
-                <Pyramid climbs={routeClimbs} system="YDS" />
-              </Section>
-            )}
-          </>
+        {tab === 'monthly' ? (
+          <MonthlyBreakdown />
         ) : (
           <>
-            {boulderClimbs.length >= 2 && (
-              <Section title="Boulder">
-                <Trend climbs={boulderClimbs} system="V" />
-              </Section>
+            <Text style={styles.sentNote}>Stats include sent climbs only.</Text>
+
+            {sent.length === 0 && <Empty />}
+
+            {tab === 'pyramid' ? (
+              <>
+                {boulderClimbs.length > 0 && (
+                  <Section title="Boulder">
+                    <Pyramid climbs={boulderClimbs} system="V" />
+                  </Section>
+                )}
+                {routeClimbs.length > 0 && (
+                  <Section title="Top rope / Lead">
+                    <Pyramid climbs={routeClimbs} system="YDS" />
+                  </Section>
+                )}
+              </>
+            ) : (
+              <>
+                {boulderClimbs.length >= 2 && (
+                  <Section title="Boulder">
+                    <Trend climbs={boulderClimbs} system="V" />
+                  </Section>
+                )}
+                {routeClimbs.length >= 2 && (
+                  <Section title="Top rope / Lead">
+                    <Trend climbs={routeClimbs} system="YDS" />
+                  </Section>
+                )}
+                {boulderClimbs.length < 2 && routeClimbs.length < 2 && sent.length > 0 && (
+                  <Text style={styles.empty}>Log climbs across two months to see a trend.</Text>
+                )}
+              </>
             )}
-            {routeClimbs.length >= 2 && (
-              <Section title="Top rope / Lead">
-                <Trend climbs={routeClimbs} system="YDS" />
-              </Section>
-            )}
-            {sent.length > 0 && <MonthlyBreakdown boulder={boulderClimbs} routes={routeClimbs} />}
           </>
         )}
       </ScrollView>
@@ -291,60 +309,57 @@ function Trend({ climbs, system }: { climbs: Climb[]; system: GradeSystem }) {
   );
 }
 
-// ─── Monthly breakdown (combined) ─────────────────────────────────────────
+// ─── Monthly breakdown → wrapped ──────────────────────────────────────────
 
-function MonthlyBreakdown({ boulder, routes }: { boulder: Climb[]; routes: Climb[] }) {
-  // Group all months that have at least one climb in either system.
-  const monthsSet = new Set<string>();
-  [...boulder, ...routes].forEach(c => monthsSet.add(c.date.slice(0, 7)));
-  const months = [...monthsSet].sort().reverse();
+function MonthlyBreakdown() {
+  const { climbs } = useClimbs();
+  const router = useRouter();
+  const months = useMemo(() => monthlyWrapped(climbs), [climbs]);
 
-  const highest = (arr: Climb[], mo: string) => {
-    const inMonth = arr.filter(c => c.date.startsWith(mo));
-    if (inMonth.length === 0) return null;
-    return inMonth.reduce((best, c) => (gradeOrder(c.gradeHigh) > gradeOrder(best.gradeHigh) ? c : best), inMonth[0]);
-  };
+  if (months.length === 0) {
+    return <Text style={styles.empty}>Log some climbs to see your months.</Text>;
+  }
 
-  const countIn = (arr: Climb[], mo: string) =>
-    arr.filter(c => c.date.startsWith(mo)).reduce((a, c) => a + climbCount(c), 0);
-
-  const moLabel = (mo: string) => MONTHS[parseInt(mo.split('-')[1], 10) - 1];
+  const maxSends = Math.max(...months.map(m => m.sends), 1);
 
   return (
     <View>
-      <Text style={styles.sectionLabel}>Monthly Breakdown</Text>
+      <Text style={styles.moIntro}>Tap a month to play its wrapped.</Text>
+      <View style={styles.moDivider} />
       <View style={{ gap: 8 }}>
-        {months.map(mo => {
-          const topB = highest(boulder, mo);
-          const topR = highest(routes, mo);
-          const totalCount = countIn(boulder, mo) + countIn(routes, mo);
-          return (
-            <View key={mo} style={styles.moRow}>
-              <View>
-                <Text style={{ fontSize: 13, color: C.text, fontWeight: '600' }}>
-                  {moLabel(mo)} {mo.slice(0, 4)}
-                </Text>
-                <Text style={{ fontSize: 11, color: C.textSec, marginTop: 2 }}>
-                  {totalCount} send{totalCount !== 1 ? 's' : ''}
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                {topB && (
-                  <View style={{ alignItems: 'center' }}>
-                    <Text style={styles.moSysLabel}>BOULDER</Text>
-                    <GradeTag grade={topB.gradeHigh} size="sm" />
-                  </View>
-                )}
-                {topR && (
-                  <View style={{ alignItems: 'center' }}>
-                    <Text style={styles.moSysLabel}>ROUTE</Text>
-                    <GradeTag grade={topR.gradeHigh} size="sm" />
-                  </View>
-                )}
+        {months.map(m => (
+          <Pressable
+            key={m.key}
+            onPress={() => router.push({ pathname: '/wrapped/[month]', params: { month: m.key } })}
+            style={({ pressed }) => [styles.moRow, pressed && { opacity: 0.7 }]}>
+            <View style={styles.moAccentBar} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.moLabel}>{m.label}</Text>
+              <Text style={styles.moSub}>
+                {m.sends} send{m.sends !== 1 ? 's' : ''} · {m.sessions} session
+                {m.sessions !== 1 ? 's' : ''}
+                {m.gymCount > 0 ? ` · ${m.gymCount} gym${m.gymCount !== 1 ? 's' : ''}` : ''}
+              </Text>
+              <View style={styles.moTrack}>
+                <View style={[styles.moFill, { width: `${(m.sends / maxSends) * 100}%` }]} />
               </View>
             </View>
-          );
-        })}
+            <View style={styles.moGrades}>
+              {!!m.hardBoulder && (
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.moSysLabel}>BOULDER</Text>
+                  <GradeTag grade={m.hardBoulder} size="sm" />
+                </View>
+              )}
+              {!!m.hardRoute && (
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.moSysLabel}>ROUTE</Text>
+                  <GradeTag grade={m.hardRoute} size="sm" />
+                </View>
+              )}
+            </View>
+          </Pressable>
+        ))}
       </View>
     </View>
   );
@@ -392,17 +407,25 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 10,
   },
+  moIntro: { fontSize: 13, color: C.textSec, marginBottom: 12 },
+  moDivider: { height: 1, backgroundColor: C.border, marginBottom: 14 },
   moRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
     backgroundColor: C.surface,
     borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: C.border,
   },
+  moAccentBar: { width: 3, alignSelf: 'stretch', borderRadius: 2, backgroundColor: C.accent },
+  moLabel: { fontSize: 16, color: C.text, fontWeight: '600' },
+  moSub: { fontSize: 11, color: C.textSec, marginTop: 2 },
+  moTrack: { height: 3, borderRadius: 2, backgroundColor: C.border, marginTop: 7, overflow: 'hidden' },
+  moFill: { height: 3, borderRadius: 2, backgroundColor: C.accent },
+  moGrades: { gap: 4, alignItems: 'flex-end' },
   moSysLabel: {
     fontSize: 8,
     color: C.textMuted,
