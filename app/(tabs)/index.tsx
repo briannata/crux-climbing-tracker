@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 8,
   },
-  logBtnText: { color: '#16130e', fontWeight: '700', fontSize: 14 },
+  logBtnText: { color: C.onAccent, fontWeight: '700', fontSize: 14 },
   statsRow: { gap: 10, paddingHorizontal: 20, paddingVertical: 8, alignItems: 'center' },
   statCard: {
     backgroundColor: C.surface,

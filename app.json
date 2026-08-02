@@ -33,7 +33,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#16130e"
+          "backgroundColor": "#161826"
         }
       ],
       "expo-video",

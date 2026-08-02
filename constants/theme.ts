@@ -5,8 +5,9 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Nocturne accent — see `C` in constants/climbing.ts, the app's real palette.
+const tintColorLight = '#5d5294';
+const tintColorDark = '#9184d9';
 
 export const Colors = {
   light: {
@@ -18,11 +19,11 @@ export const Colors = {
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: '#e9e9ed',
+    background: '#161826',
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: '#9397ab',
+    tabIconDefault: '#9397ab',
     tabIconSelected: tintColorDark,
   },
 };

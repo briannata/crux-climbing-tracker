@@ -65,7 +65,7 @@ export default function OnboardingScreen() {
               disabled={!name.trim() || busy}
               style={[styles.cta, (!name.trim() || busy) && styles.ctaDisabled]}>
               {busy ? (
-                <ActivityIndicator color="#16130e" />
+                <ActivityIndicator color={C.onAccent} />
               ) : (
                 <Text style={styles.ctaText}>Get started</Text>
               )}
@@ -113,6 +113,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaDisabled: { opacity: 0.4 },
-  ctaText: { color: '#16130e', fontSize: 16, fontWeight: '700' },
+  ctaText: { color: C.onAccent, fontSize: 16, fontWeight: '700' },
   fineprint: { color: C.textMuted, fontSize: 12, textAlign: 'center', marginTop: 16 },
 });

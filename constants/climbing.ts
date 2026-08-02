@@ -165,19 +165,31 @@ export const gradeColor = (g: string): string => {
 
 // ─── Theme ─────────────────────────────────────────────────────────────────
 
+/**
+ * Nocturne — dark indigo grounds, blurple accent. Grade colors (above) and
+ * hold colors (below) are deliberately NOT part of this palette: they're data,
+ * not chrome, and stay as they are.
+ */
 export const C = {
-  bg: '#16130e',
-  surface: '#211e18',
-  surfaceEl: '#2a2720',
-  border: '#3a362e',
-  text: '#ede8e0',
-  textSec: '#7a7168',
-  textMuted: '#4a4540',
-  accent: '#e09030',
-  accentDim: 'rgba(224,144,48,0.15)',
-  accentGlow: 'rgba(224,144,48,0.35)',
+  bg: '#161826',
+  surface: '#232532',
+  surfaceEl: '#2b2e3d',
+  border: '#3f424d',        // neutral-800
+  text: '#e9e9ed',
+  textSec: '#9397ab',       // neutral-500
+  textMuted: '#75798c',     // neutral-600
+  accent: '#9184d9',
+  accentSoft: '#a7a1db',    // accent-2
+  accentBright: '#d2cefd',  // accent-300
+  accentDeep: '#5d5294',    // accent-700
+  accentDim: 'rgba(145,132,217,0.16)',
+  accentGlow: 'rgba(145,132,217,0.38)',
+  /** Saturated indigo used for deck-scale fills (wrapped covers). */
+  section: '#262a60',
+  /** Text/icon color that sits on top of a filled accent surface. */
+  onAccent: '#161826',
   danger: '#f87171',
-  trendBlue: '#60a5fa',
+  trendBlue: '#7aa2f7',
 };
 
 // ─── Media + tags ──────────────────────────────────────────────────────────
@@ -226,6 +238,8 @@ export type Climb = {
   count?: number;
   routeName?: string;
   location?: string;
+  /** Who set the boulder/route. Optional, free text with autofill. */
+  setter?: string;
   notes?: string;
   attempts?: number | null;
   sessions?: number | null;
