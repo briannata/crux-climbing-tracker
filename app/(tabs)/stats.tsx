@@ -10,6 +10,7 @@ import {
   YDS_BASES,
   climbCount,
   climbPyramidBucket,
+  climbSendGrade,
   gradeColor,
   gradeOrder,
   parseGrade,
@@ -213,18 +214,16 @@ function Trend({ climbs, system }: { climbs: Climb[]; system: GradeSystem }) {
 
   const data = months.map(mo => {
     const mc = byMonth[mo];
-    const highs = mc.map(c => gradeOrder(c.gradeHigh)).filter(n => n > -9000);
+    // A ranged climb peaks at its middle, not its top: V4-V6 is a V5 send.
+    const highs = mc.map(c => gradeOrder(climbSendGrade(c))).filter(n => n > -9000);
     const buckets = mc.flatMap(c => Array(climbCount(c)).fill(gradeOrder(climbPyramidBucket(c))));
     const maxN = Math.max(...highs);
     const avgN = buckets.reduce((a, b) => a + b, 0) / (buckets.length || 1);
-    const maxClimb = mc.reduce((best, c) =>
-      gradeOrder(c.gradeHigh) > gradeOrder(best.gradeHigh) ? c : best, mc[0]);
     return {
       mo,
       max: maxN,
       avg: avgN,
       count: buckets.length,
-      maxGrade: maxClimb.gradeHigh,
     };
   });
 

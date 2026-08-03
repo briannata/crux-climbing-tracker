@@ -8,6 +8,7 @@
 import {
   climbCount,
   climbPyramidBucket,
+  climbSendGrade,
   gradeOrder,
   parseGrade,
   type Climb,
@@ -84,13 +85,15 @@ export function monthShort(key: string): string {
   return MONTH_SHORT[Number(key.split('-')[1]) - 1] ?? key;
 }
 
-/** Hardest climb in a list, compared inside one grade system. */
+/**
+ * Hardest climb in a list, compared inside one grade system. A ranged climb
+ * counts as its middle rather than its top — see `climbSendGrade`.
+ */
 function hardestGrade(climbs: Climb[]): string | null {
   if (!climbs.length) return null;
-  return climbs.reduce(
-    (best, c) => (gradeOrder(c.gradeHigh) > gradeOrder(best.gradeHigh) ? c : best),
-    climbs[0]
-  ).gradeHigh;
+  return climbs
+    .map(climbSendGrade)
+    .reduce((best, g) => (gradeOrder(g) > gradeOrder(best) ? g : best));
 }
 
 const sumCount = (climbs: Climb[]) => climbs.reduce((a, c) => a + climbCount(c), 0);

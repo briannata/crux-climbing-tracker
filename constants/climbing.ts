@@ -297,4 +297,15 @@ export function climbPyramidBucket(c: Pick<Climb, 'gradeLow' | 'gradeHigh'>): st
   return bases[Math.floor((loIdx + hiIdx) / 2)] ?? hiBase;
 }
 
+/**
+ * The grade a climb counts as when ranking "hardest send".
+ *
+ * A range counts as its middle, not its top — V4-V6 is a V5 send, not a V6.
+ * Single-grade climbs keep their modifier, so 5.11c stays 5.11c rather than
+ * collapsing to the 5.11 bucket.
+ */
+export function climbSendGrade(c: Pick<Climb, 'gradeLow' | 'gradeHigh'>): string {
+  return c.gradeLow === c.gradeHigh ? c.gradeHigh : climbPyramidBucket(c);
+}
+
 export const climbCount = (c: Pick<Climb, 'count'>) => c.count ?? 1;
