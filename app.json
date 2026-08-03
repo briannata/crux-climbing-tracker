@@ -51,7 +51,7 @@
     },
     "owner": "briannat",
     "runtimeVersion": {
-      "policy": "appVersion"
+      "policy": "sdkVersion"
     },
     "updates": {
       "url": "https://u.expo.dev/69f4812c-f23a-448f-a0e7-d8dc79c52f8a"
