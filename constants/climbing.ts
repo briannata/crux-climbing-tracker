@@ -176,6 +176,7 @@ export const C = {
   surfaceEl: '#2b2e3d',
   border: '#3f424d',        // neutral-800
   text: '#e9e9ed',
+  textSoft: '#cfd3e5',      // neutral-300
   textSec: '#9397ab',       // neutral-500
   textMuted: '#75798c',     // neutral-600
   accent: '#9184d9',

@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Line, Path, Text as SvgText } from 'react-native-svg';
-import { GradeTag } from '@/components/grade-tag';
 import {
   C,
   V_BASES,
@@ -323,7 +322,7 @@ function MonthlyBreakdown() {
 
   return (
     <View>
-      <Text style={styles.moIntro}>Tap a month to play its wrapped.</Text>
+      <Text style={styles.moIntro}>Tap a month to replay its wrapped.</Text>
       <View style={styles.moDivider} />
       <View style={{ gap: 8 }}>
         {months.map(m => (
@@ -343,19 +342,11 @@ function MonthlyBreakdown() {
                 <View style={[styles.moFill, { width: `${(m.sends / maxSends) * 100}%` }]} />
               </View>
             </View>
+            {/* Boulder reads in the accent tint, rope in neutral — the two
+                systems stay distinguishable without labels or pills. */}
             <View style={styles.moGrades}>
-              {!!m.hardBoulder && (
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.moSysLabel}>BOULDER</Text>
-                  <GradeTag grade={m.hardBoulder} size="sm" />
-                </View>
-              )}
-              {!!m.hardRoute && (
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.moSysLabel}>ROUTE</Text>
-                  <GradeTag grade={m.hardRoute} size="sm" />
-                </View>
-              )}
+              {!!m.hardBoulder && <Text style={styles.moGradeBoulder}>{m.hardBoulder}</Text>}
+              {!!m.hardRoute && <Text style={styles.moGradeRoute}>{m.hardRoute}</Text>}
             </View>
           </Pressable>
         ))}
@@ -424,12 +415,7 @@ const styles = StyleSheet.create({
   moSub: { fontSize: 11, color: C.textSec, marginTop: 2 },
   moTrack: { height: 3, borderRadius: 2, backgroundColor: C.border, marginTop: 7, overflow: 'hidden' },
   moFill: { height: 3, borderRadius: 2, backgroundColor: C.accent },
-  moGrades: { gap: 4, alignItems: 'flex-end' },
-  moSysLabel: {
-    fontSize: 8,
-    color: C.textMuted,
-    letterSpacing: 1,
-    marginBottom: 3,
-    fontWeight: '700',
-  },
+  moGrades: { gap: 2, alignItems: 'flex-end', flexShrink: 0 },
+  moGradeBoulder: { fontSize: 15, fontWeight: '600', color: C.accentBright, lineHeight: 18 },
+  moGradeRoute: { fontSize: 15, fontWeight: '600', color: C.textSoft, lineHeight: 18 },
 });
