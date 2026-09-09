@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Text, type ColorValue } from 'react-native';
 import { C } from '@/constants/climbing';
 
-const TabIcon = ({ children, color }: { children: string; color: string }) => (
+const TabIcon = ({ children, color }: { children: string; color: ColorValue }) => (
   <Text style={{ fontSize: 20, color }}>{children}</Text>
 );
 

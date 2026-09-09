@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   meta: { fontSize: 11, color: C.textMuted },
   notes: { flex: 1 },
   thumbWrap: { width: 64, alignSelf: 'stretch' },
-  thumb: { ...StyleSheet.absoluteFillObject, width: undefined, height: undefined },
+  thumb: { ...StyleSheet.absoluteFill, width: undefined, height: undefined },
   playBadge: {
     position: 'absolute',
     top: '50%',

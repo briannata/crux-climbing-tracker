@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
   stage: { flex: 1, position: 'relative', minHeight: 0 },
   tapZone: { position: 'absolute', top: 0 },
 
-  card: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  card: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
   cardInner: { flex: 1, paddingHorizontal: 20, paddingTop: 18 },
   cardMain: { flex: 1 },
 
@@ -731,7 +731,7 @@ const styles = StyleSheet.create({
   gradeLabel: { fontSize: 12, fontWeight: '600', color: C.text, fontFamily: 'monospace' },
 
   // Summary
-  summaryOuter: { ...StyleSheet.absoluteFillObject, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 22 },
+  summaryOuter: { ...StyleSheet.absoluteFill, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 22 },
   summaryCard: {
     flex: 1,
     borderRadius: 14,

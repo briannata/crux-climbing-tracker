@@ -84,7 +84,7 @@ function VideoBlock({
         player={player}
         style={StyleSheet.absoluteFill}
         contentFit={fullscreen ? 'contain' : 'cover'}
-        allowsFullscreen
+        fullscreenOptions={{ enable: true }}
         nativeControls
       />
     </View>
