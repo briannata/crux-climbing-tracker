@@ -1,6 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { C, type Climb, type Media } from '@/constants/climbing';
 import { useClimbs } from '@/hooks/use-climbs';
@@ -23,6 +32,7 @@ export default function MediaBackupScreen() {
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(0);
   const [result, setResult] = useState<{ saved: number; failed: number } | null>(null);
+  const [clearing, setClearing] = useState(false);
 
   // The existence check is a synchronous filesystem read, so this is derived
   // straight from the climb list rather than run as an effect.
@@ -88,6 +98,55 @@ export default function MediaBackupScreen() {
     setRunning(false);
   };
 
+  /**
+   * Drop references to files iOS already deleted. Nothing recoverable is lost
+   * here -- the underlying files are gone -- and it goes through `upsert` so
+   * the local cache and the server clear together. A server-only cleanup would
+   * be undone by the next sync, which pushes the local cache back up.
+   */
+  const clearMissing = () => {
+    const gone = items.filter(i => !i.readable);
+    if (clearing || gone.length === 0) return;
+
+    const apply = async () => {
+      setClearing(true);
+      const byClimb = new Map<string, Item[]>();
+      for (const item of gone) {
+        const list = byClimb.get(item.climb.id) ?? [];
+        list.push(item);
+        byClimb.set(item.climb.id, list);
+      }
+      for (const [climbId, group] of byClimb) {
+        let next = group[0].climb;
+        for (const item of group) next = { ...next, [item.slot]: null };
+        try {
+          await upsert(next);
+        } catch (e) {
+          console.warn('[crux] could not clear media for', climbId, e);
+        }
+      }
+      setClearing(false);
+    };
+
+    const title = `Remove ${gone.length} missing reference${gone.length === 1 ? '' : 's'}?`;
+    const body =
+      'These files are no longer on this phone, so nothing recoverable is lost. Your climbs, grades and notes are untouched.';
+
+    // react-native-web's Alert.alert is a no-op, which would make this button
+    // do nothing on web.
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(`${title}
+
+${body}`)) apply();
+      return;
+    }
+
+    Alert.alert(title, body, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: apply },
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
@@ -133,6 +192,16 @@ export default function MediaBackupScreen() {
                   originals may still be in your Photos library — those climbs need their media
                   attached again by hand.
                 </Text>
+                <Pressable
+                  onPress={clearMissing}
+                  disabled={clearing}
+                  style={[styles.secondary, clearing && { opacity: 0.5 }]}>
+                  <Text style={styles.secondaryText}>
+                    {clearing
+                      ? 'Removing…'
+                      : `Remove ${missing} missing reference${missing === 1 ? '' : 's'}`}
+                  </Text>
+                </Pressable>
               </View>
             )}
 
@@ -147,20 +216,18 @@ export default function MediaBackupScreen() {
                   </Text>
                 )}
               </View>
-            ) : (
+            ) : readable.length === 0 ? null : (
               <Pressable
                 onPress={run}
-                disabled={running || readable.length === 0}
-                style={[styles.cta, (running || readable.length === 0) && { opacity: 0.5 }]}>
+                disabled={running}
+                style={[styles.cta, running && { opacity: 0.5 }]}>
                 {running ? (
                   <Text style={styles.ctaText}>
                     Backing up… {done}/{readable.length}
                   </Text>
                 ) : (
                   <Text style={styles.ctaText}>
-                    {readable.length > 0
-                      ? `Back up ${readable.length} file${readable.length === 1 ? '' : 's'}`
-                      : 'Nothing recoverable'}
+                    Back up {readable.length} file{readable.length === 1 ? '' : 's'}
                   </Text>
                 )}
               </Pressable>
@@ -235,4 +302,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaText: { color: C.onAccent, fontSize: 16, fontWeight: '700' },
+  secondary: {
+    marginTop: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  secondaryText: { color: C.textSoft, fontSize: 14, fontWeight: '600' },
 });

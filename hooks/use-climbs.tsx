@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { Climb, ClimbStyle, ClimbTag, Grade } from '@/constants/climbing';
 import { genId, isSupabaseConfigured, isUuid, supabase, type DbClimb } from '@/lib/supabase';
 import { useCurrentUser } from './use-current-user';
@@ -70,12 +70,22 @@ export function ClimbsProvider({ children }: { children: React.ReactNode }) {
   const [climbs, setClimbs] = useState<Climb[]>([]);
   const [loaded, setLoaded] = useState(false);
 
+  // Mutations read the list through this ref rather than through the state
+  // captured at render. Without it, awaiting several upserts in a row (the
+  // media backup does exactly that) has each one start from the same stale
+  // array, so only the last write survives.
+  const climbsRef = useRef<Climb[]>([]);
+
   // 1. Load cache immediately (this is the source of truth until proven otherwise)
   useEffect(() => {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) setClimbs(JSON.parse(raw));
+        if (raw) {
+          const parsed: Climb[] = JSON.parse(raw);
+          climbsRef.current = parsed;
+          setClimbs(parsed);
+        }
       } finally {
         setLoaded(true);
       }
@@ -83,6 +93,9 @@ export function ClimbsProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const persistLocal = useCallback(async (next: Climb[]) => {
+    // Update the ref first and synchronously, so a following mutation in the
+    // same tick composes onto this one instead of clobbering it.
+    climbsRef.current = next;
     setClimbs(next);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   }, []);
@@ -149,9 +162,10 @@ export function ClimbsProvider({ children }: { children: React.ReactNode }) {
     async (c: Climb) => {
       // Always make sure ids are UUIDs going forward.
       const safe: Climb = isUuid(c.id) ? c : { ...c, id: genId() };
-      const next = climbs.some(x => x.id === safe.id)
-        ? climbs.map(x => (x.id === safe.id ? safe : x))
-        : [...climbs, safe];
+      const current = climbsRef.current;
+      const next = current.some(x => x.id === safe.id)
+        ? current.map(x => (x.id === safe.id ? safe : x))
+        : [...current, safe];
       await persistLocal(next);
 
       if (user && isSupabaseConfigured) {
@@ -161,18 +175,18 @@ export function ClimbsProvider({ children }: { children: React.ReactNode }) {
         if (error) console.warn('[crux] upsert climb failed:', error.message);
       }
     },
-    [climbs, persistLocal, user]
+    [persistLocal, user]
   );
 
   const remove = useCallback(
     async (id: string) => {
-      await persistLocal(climbs.filter(c => c.id !== id));
+      await persistLocal(climbsRef.current.filter(c => c.id !== id));
       if (user && isSupabaseConfigured) {
         const { error } = await supabase.from('climbs').delete().eq('id', id);
         if (error) console.warn('[crux] delete climb failed:', error.message);
       }
     },
-    [climbs, persistLocal, user]
+    [persistLocal, user]
   );
 
   return (
