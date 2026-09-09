@@ -14,7 +14,6 @@ import {
   type Climb,
 } from '@/constants/climbing';
 import { useClimbs } from '@/hooks/use-climbs';
-import { isLocalUri } from '@/lib/media-storage';
 
 export default function FeedScreen() {
   const { climbs } = useClimbs();
@@ -35,16 +34,6 @@ export default function FeedScreen() {
   const bestR = bestBy(sentRoutes, gradeOrder);
   const bestOverall = bestBy(sent, gradeDifficulty);
   const bothSystems = sentBoulder.length > 0 && sentRoutes.length > 0;
-
-  // Media saved before uploads existed still points at this device. Surface a
-  // way to rescue it, and let the banner disappear once nothing is left.
-  const localMediaCount = climbs.reduce(
-    (n, c) =>
-      n +
-      (c.routeMedia && isLocalUri(c.routeMedia.uri) ? 1 : 0) +
-      (c.climbMedia && isLocalUri(c.climbMedia.uri) ? 1 : 0),
-    0
-  );
 
   const monthPrefix = localDateString().slice(0, 7);
   const thisMonth = climbs.filter(c => c.date.startsWith(monthPrefix));
@@ -119,17 +108,6 @@ export default function FeedScreen() {
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {localMediaCount > 0 && (
-          <Pressable onPress={() => router.push('/media-backup')} style={styles.banner}>
-            <Text style={styles.bannerTitle}>
-              {localMediaCount} media file{localMediaCount === 1 ? '' : 's'} not backed up
-            </Text>
-            <Text style={styles.bannerBody}>
-              These live only on this phone and can be lost when the app updates. Tap to check and
-              back them up.
-            </Text>
-          </Pressable>
-        )}
         <Text style={styles.sectionLabel}>Recent Climbs</Text>
         {sorted.length === 0 ? (
           <View style={styles.empty}>
@@ -149,6 +127,12 @@ export default function FeedScreen() {
             ))}
           </View>
         )}
+
+        {/* Quiet way back to the one-time media cleanup now that the banner
+            is gone. Not shown as a prompt; it just sits at the end of the list. */}
+        <Pressable onPress={() => router.push('/media-backup')} hitSlop={8}>
+          <Text style={styles.footerLink}>Media backup</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -196,17 +180,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 10,
   },
-  banner: {
-    backgroundColor: C.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.accentDeep,
-    padding: 14,
-    marginBottom: 14,
-    gap: 4,
+  footerLink: {
+    color: C.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 22,
+    marginBottom: 4,
   },
-  bannerTitle: { color: C.accentBright, fontSize: 14, fontWeight: '600' },
-  bannerBody: { color: C.textSec, fontSize: 12, lineHeight: 18 },
   empty: { alignItems: 'center', marginTop: 40 },
   emptyText: { color: C.textMuted, fontSize: 14, marginBottom: 4 },
   emptyLink: { color: C.accent, fontSize: 14 },
