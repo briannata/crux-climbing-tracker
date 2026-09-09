@@ -34,8 +34,8 @@ create table if not exists climbs (
   notes text,
   attempts integer,
   sessions integer,
-  -- Media URIs are device-local for now (phase 1).
-  -- Phase 3 will move them to Supabase Storage and use storage paths instead.
+  -- {uri, kind, thumb}. `uri` is a public Storage URL; older rows may still
+  -- hold a dead on-device file:// path (see the storage section below).
   route_media jsonb,
   climb_media jsonb,
   date date not null,
@@ -114,3 +114,32 @@ create policy "anon write climbs" on climbs       for all    using (true) with c
 create policy "anon rw follows"  on follows       for all    using (true) with check (true);
 create policy "anon rw likes"    on likes         for all    using (true) with check (true);
 create policy "anon rw notifs"   on notifications for all    using (true) with check (true);
+
+-- ─── Media storage (phase 3) ───────────────────────────────────────────────
+-- Media used to be referenced by absolute on-device file:// paths pointing
+-- into Expo Go's Library/Caches. iOS purges that directory and the container
+-- id changes on reinstall, so every reference died when Expo Go updated.
+-- Media now lives in Storage and is referenced by its public URL.
+--
+-- The bucket is public, matching the permissive posture of the tables above:
+-- anyone holding the anon key can already read every climb. Revisit alongside
+-- real auth.
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'climb-media', 'climb-media', true, 52428800,
+  array['image/jpeg','image/png','image/heic','image/heif','image/webp','video/mp4','video/quicktime']
+)
+on conflict (id) do update set
+  public             = excluded.public,
+  file_size_limit    = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "anon read climb media"  on storage.objects;
+drop policy if exists "anon write climb media" on storage.objects;
+
+create policy "anon read climb media" on storage.objects
+  for select using (bucket_id = 'climb-media');
+
+create policy "anon write climb media" on storage.objects
+  for all using (bucket_id = 'climb-media') with check (bucket_id = 'climb-media');

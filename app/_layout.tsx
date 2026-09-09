@@ -42,6 +42,7 @@ function AuthGate() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="log" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="climb/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="media-backup" options={{ headerShown: false }} />
       <Stack.Screen
         name="wrapped/[month]"
         options={{ presentation: 'modal', headerShown: false, animation: 'fade' }}

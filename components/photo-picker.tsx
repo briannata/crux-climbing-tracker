@@ -1,7 +1,10 @@
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { Image, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { C, type Media } from '@/constants/climbing';
+import { uploadMedia } from '@/lib/media-storage';
+import { genId } from '@/lib/supabase';
 
 type Props = {
   label: string;
@@ -11,7 +14,10 @@ type Props = {
 };
 
 export function MediaPicker({ label, media, onSet, style }: Props) {
+  const [busy, setBusy] = useState(false);
+
   const pick = async () => {
+    if (busy) return;
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       quality: 0.7,
@@ -27,7 +33,21 @@ export function MediaPicker({ label, media, onSet, style }: Props) {
         thumb = t.uri;
       } catch {}
     }
-    onSet({ uri: asset.uri, kind, thumb });
+
+    const local: Media = { uri: asset.uri, kind, thumb };
+    // Show the local copy straight away, then swap in the uploaded URL. The
+    // picker hands back a path in the cache directory, which iOS is free to
+    // delete, so the upload is what actually makes this media durable.
+    onSet(local);
+    setBusy(true);
+    try {
+      const remote = await uploadMedia(local, `climbs/${genId()}`);
+      if (remote) onSet(remote);
+    } catch (e) {
+      console.warn('[crux] media upload failed, keeping local copy', e);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const previewUri = media?.kind === 'video' ? media.thumb : media?.uri;
@@ -44,9 +64,15 @@ export function MediaPicker({ label, media, onSet, style }: Props) {
           ) : (
             <View style={[styles.img, { backgroundColor: '#000' }]} />
           )}
-          {media.kind === 'video' && (
+          {media.kind === 'video' && !busy && (
             <View style={styles.playBadge}>
               <Text style={styles.playIcon}>▶</Text>
+            </View>
+          )}
+          {busy && (
+            <View style={styles.uploadingOverlay}>
+              <ActivityIndicator color={C.accent} />
+              <Text style={styles.uploadingText}>Saving…</Text>
             </View>
           )}
         </View>
@@ -87,6 +113,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   playIcon: { color: '#fff', fontSize: 14, marginLeft: 2 },
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(22,24,38,0.72)',
+    gap: 6,
+  },
+  uploadingText: { color: C.textSec, fontSize: 11 },
   placeholder: { alignItems: 'center', padding: 12 },
   plus: { fontSize: 22, color: C.textMuted, marginBottom: 4 },
   label: { fontSize: 11, color: C.textMuted, textAlign: 'center' },
