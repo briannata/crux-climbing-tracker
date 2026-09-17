@@ -203,6 +203,16 @@ export type Media = {
   thumb?: string;
 };
 
+/** One photo or video attached to a climb. */
+export type ClimbMedia = Media & {
+  /** Stable identity, so an upload can land on the right item after edits. */
+  id?: string;
+  /** Which attempt this captures, 1-based. Unset for photos of the route. */
+  attempt?: number;
+  /** The video of the attempt that sent it. At most one per climb. */
+  isSend?: boolean;
+};
+
 export const TAGS = [
   'slab', 'vertical', 'overhung', 'roof', 'dihedral',
   'crimp', 'sloper', 'pinch', 'jug', 'pocket',
@@ -244,6 +254,12 @@ export type Climb = {
   notes?: string;
   attempts?: number | null;
   sessions?: number | null;
+  /** Every photo and video, in the order they were added. */
+  media?: ClimbMedia[];
+  /**
+   * Single-slot media from before `media` existed. Only ever read: saving a
+   * climb folds these into `media` and clears them.
+   */
   routeMedia?: Media | null;
   climbMedia?: Media | null;
   date: string;
@@ -310,3 +326,29 @@ export function climbSendGrade(c: Pick<Climb, 'gradeLow' | 'gradeHigh'>): string
 }
 
 export const climbCount = (c: Pick<Climb, 'count'>) => c.count ?? 1;
+
+/**
+ * All media on a climb. Climbs saved before multi-media carried at most a
+ * route photo and a send in two separate slots; those are folded in after the
+ * list so older climbs render the same way as new ones.
+ */
+export function climbMediaList(
+  c: Pick<Climb, 'media' | 'routeMedia' | 'climbMedia'>
+): ClimbMedia[] {
+  const list: ClimbMedia[] = [...(c.media ?? [])];
+  if (c.routeMedia) list.push({ ...c.routeMedia });
+  if (c.climbMedia) list.push({ ...c.climbMedia });
+  return list;
+}
+
+/** The video marked as the send, if there is one. */
+export const climbSendMedia = (c: Pick<Climb, 'media' | 'routeMedia' | 'climbMedia'>) =>
+  climbMediaList(c).find(m => m.isSend && m.kind === 'video');
+
+/** "Send · Attempt 7", "Attempt 3", "Photo" — the caption under a media item. */
+export function mediaCaption(m: ClimbMedia): string {
+  const attempt = m.attempt ? `Attempt ${m.attempt}` : '';
+  if (m.isSend) return attempt ? `Send · ${attempt}` : 'Send';
+  if (attempt) return attempt;
+  return m.kind === 'video' ? 'Video' : 'Photo';
+}

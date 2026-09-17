@@ -66,6 +66,8 @@ export type DbClimb = {
   notes: string | null;
   attempts: number | null;
   sessions: number | null;
+  /** Absent until the `media` column migration has run. */
+  media?: unknown[] | null;
   route_media: unknown | null;
   climb_media: unknown | null;
   date: string;

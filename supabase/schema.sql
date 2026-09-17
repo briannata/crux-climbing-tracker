@@ -34,8 +34,12 @@ create table if not exists climbs (
   notes text,
   attempts integer,
   sessions integer,
-  -- {uri, kind, thumb}. `uri` is a public Storage URL; older rows may still
-  -- hold a dead on-device file:// path (see the storage section below).
+  -- Array of {id, uri, kind, thumb, attempt, isSend}. `uri` is a public
+  -- Storage URL; see the storage section below.
+  media jsonb not null default '[]'::jsonb,
+  -- Single-slot media from before `media` existed. Read-only: saving a climb
+  -- folds these into `media` and clears them. Older rows may hold a dead
+  -- on-device file:// path.
   route_media jsonb,
   climb_media jsonb,
   date date not null,
@@ -44,8 +48,9 @@ create table if not exists climbs (
   updated_at timestamptz not null default now()
 );
 
--- Migration for databases created before `setter` existed.
+-- Migrations for databases created before these columns existed.
 alter table climbs add column if not exists setter text;
+alter table climbs add column if not exists media jsonb not null default '[]'::jsonb;
 
 create index if not exists climbs_user_id_idx on climbs (user_id);
 create index if not exists climbs_date_idx on climbs (date desc);

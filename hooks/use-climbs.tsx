@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import type { Climb, ClimbStyle, ClimbTag, Grade } from '@/constants/climbing';
+import type { Climb, ClimbMedia, ClimbStyle, ClimbTag, Grade } from '@/constants/climbing';
 import { genId, isSupabaseConfigured, isUuid, supabase, type DbClimb } from '@/lib/supabase';
 import { useCurrentUser } from './use-current-user';
 
@@ -35,6 +35,7 @@ function toDb(c: Climb, userId: string): Omit<DbClimb, 'created_at' | 'updated_a
     notes: c.notes ?? null,
     attempts: c.attempts ?? null,
     sessions: c.sessions ?? null,
+    media: c.media ?? [],
     route_media: c.routeMedia ?? null,
     climb_media: c.climbMedia ?? null,
     date: c.date,
@@ -58,10 +59,54 @@ function fromDb(r: DbClimb): Climb {
     notes: r.notes ?? undefined,
     attempts: r.attempts,
     sessions: r.sessions,
+    // `undefined` (not `[]`) when the column does not exist yet, so the sync
+    // merge can tell "no media" apart from "server doesn't know about media".
+    media: Array.isArray(r.media) ? (r.media as ClimbMedia[]) : undefined,
     routeMedia: (r.route_media as Climb['routeMedia']) ?? null,
     climbMedia: (r.climb_media as Climb['climbMedia']) ?? null,
     date: r.date,
   };
+}
+
+/**
+ * Columns added by migrations after the table was first created, and the climb
+ * field each one fills. A database that hasn't run a migration yet simply
+ * lacks the column.
+ */
+const MIGRATED_COLUMNS = { setter: 'setter', media: 'media' } as const;
+
+/** The column PostgREST reports as missing, e.g. "Could not find the 'setter' column". */
+function missingColumn(error: { code?: string; message?: string } | null): string | null {
+  if (!error || error.code !== 'PGRST204') return null;
+  return /'([^']+)' column/.exec(error.message ?? '')?.[1] ?? null;
+}
+
+const warnedColumns = new Set<string>();
+
+/**
+ * Push one climb. PostgREST rejects a whole row when it names a column the
+ * database doesn't have, so a single skipped migration would otherwise stop
+ * every climb syncing -- which is what happened when `setter` shipped without
+ * its column. Drop each missing column and retry, so everything else still
+ * syncs and only the new field waits for the migration.
+ */
+async function pushClimb(c: Climb, userId: string) {
+  const row: Record<string, unknown> = { ...toDb(c, userId) };
+  for (let tries = 0; tries <= Object.keys(MIGRATED_COLUMNS).length; tries++) {
+    const { error } = await supabase.from('climbs').upsert(row, { onConflict: 'id' });
+    const column = missingColumn(error);
+    if (!column || !(column in row)) return error;
+
+    if (!warnedColumns.has(column)) {
+      warnedColumns.add(column);
+      console.warn(
+        `[crux] database has no '${column}' column; syncing without it. ` +
+          'Run the migrations in supabase/schema.sql.'
+      );
+    }
+    delete row[column];
+  }
+  return null;
 }
 
 // ─── Provider ──────────────────────────────────────────────────────────────
@@ -123,9 +168,7 @@ export function ClimbsProvider({ children }: { children: React.ReactNode }) {
     // Push every local climb individually so one bad row can't take down the batch.
     const pushedIds = new Set<string>();
     for (const c of cached) {
-      const { error } = await supabase
-        .from('climbs')
-        .upsert(toDb(c, user.id), { onConflict: 'id' });
+      const error = await pushClimb(c, user.id);
       if (error) {
         console.warn('[crux] failed to push climb', c.id, error.message);
       } else {
@@ -144,13 +187,29 @@ export function ClimbsProvider({ children }: { children: React.ReactNode }) {
       return; // leave local untouched
     }
 
-    const serverClimbs = (data as DbClimb[]).map(fromDb);
-    const serverIds = new Set(serverClimbs.map(c => c.id));
+    const rows = data as DbClimb[];
+    const serverIds = new Set(rows.map(r => r.id));
 
     // Merge: take server version where it exists, but PRESERVE any local row
     // the server doesn't know about (push must have failed). Never drop data.
     const localOnly = cached.filter(c => !serverIds.has(c.id));
-    await persistLocal([...serverClimbs, ...localOnly]);
+
+    // A column the database hasn't been migrated to have is simply absent from
+    // its rows. Keep the local value for it, rather than letting the server's
+    // copy erase a setter or media list that couldn't be synced yet.
+    const cachedById = new Map(cached.map(c => [c.id, c]));
+    const merged = rows.map(row => {
+      const server = fromDb(row);
+      const local = cachedById.get(row.id);
+      if (!local) return server;
+      let result = server;
+      for (const [column, field] of Object.entries(MIGRATED_COLUMNS)) {
+        if (!(column in row)) result = { ...result, [field]: local[field] };
+      }
+      return result;
+    });
+
+    await persistLocal([...merged, ...localOnly]);
   }, [user, persistLocal]);
 
   useEffect(() => {
@@ -169,9 +228,7 @@ export function ClimbsProvider({ children }: { children: React.ReactNode }) {
       await persistLocal(next);
 
       if (user && isSupabaseConfigured) {
-        const { error } = await supabase
-          .from('climbs')
-          .upsert(toDb(safe, user.id), { onConflict: 'id' });
+        const error = await pushClimb(safe, user.id);
         if (error) console.warn('[crux] upsert climb failed:', error.message);
       }
     },

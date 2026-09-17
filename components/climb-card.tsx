@@ -1,5 +1,11 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { C, climbGradeColor, type Climb, type Media } from '@/constants/climbing';
+import {
+  C,
+  climbGradeColor,
+  climbMediaList,
+  type Climb,
+  type Media,
+} from '@/constants/climbing';
 import { GradeTag } from './grade-tag';
 
 const thumbUri = (m: Media | null | undefined) =>
@@ -11,7 +17,9 @@ export function ClimbCard({ climb, onPress }: { climb: Climb; onPress: () => voi
     month: 'short',
     day: 'numeric',
   });
-  const media = climb.routeMedia || climb.climbMedia;
+  const allMedia = climbMediaList(climb);
+  // Lead with the send when there is one; it's the attempt worth seeing.
+  const media = allMedia.find(m => m.isSend && m.kind === 'video') ?? allMedia[0];
   const thumb = thumbUri(media);
 
   return (
@@ -67,6 +75,7 @@ export function ClimbCard({ climb, onPress }: { climb: Climb; onPress: () => voi
               <Text style={styles.playIcon}>▶</Text>
             </View>
           )}
+          {allMedia.length > 1 && <Text style={styles.moreBadge}>{allMedia.length}</Text>}
         </View>
       )}
     </Pressable>
@@ -141,4 +150,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   playIcon: { color: '#fff', fontSize: 10, marginLeft: 1 },
+  moreBadge: {
+    position: 'absolute',
+    right: 4,
+    bottom: 4,
+    minWidth: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
 });
