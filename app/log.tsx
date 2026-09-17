@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DateField } from '@/components/date-field';
-import { MediaPicker } from '@/components/photo-picker';
+import { MediaGalleryEditor, toClimbMedia, type DraftMedia } from '@/components/media-gallery-editor';
 import {
   C,
   HOLD_COLORS,
   STYLES,
   TAGS,
   basesForStyle,
+  climbMediaList,
   composeGrade,
   gradeColor,
   gradeSystemForStyle,
@@ -28,7 +29,6 @@ import {
   type Climb,
   type ClimbStyle,
   type ClimbTag,
-  type Media,
 } from '@/constants/climbing';
 import { useClimbs } from '@/hooks/use-climbs';
 import { genId } from '@/lib/supabase';
@@ -125,8 +125,12 @@ export default function LogScreen() {
   const [notes, setNotes] = useState(editing?.notes || '');
   const [attempts, setAttempts] = useState(editing?.attempts != null ? String(editing.attempts) : '');
   const [sessions, setSessions] = useState(editing?.sessions != null ? String(editing.sessions) : '');
-  const [routeMedia, setRouteMedia] = useState<Media | null>(editing?.routeMedia ?? null);
-  const [climbMedia, setClimbMedia] = useState<Media | null>(editing?.climbMedia ?? null);
+  // Older climbs carried a route photo and a send in two fixed slots; they
+  // open here as ordinary items and are saved back as a single list.
+  const [media, setMedia] = useState<DraftMedia[]>(() =>
+    climbMediaList(editing ?? {}).map(m => ({ ...m, id: m.id ?? genId() }))
+  );
+  const uploadingCount = media.filter(m => m.uploading).length;
   const [date, setDate] = useState(editing?.date || localDateString());
   const [saving, setSaving] = useState(false);
 
@@ -143,7 +147,8 @@ export default function LogScreen() {
     : knownSetters;
 
   const handleSave = async () => {
-    if (saving) return;
+    // Saving mid-upload would store the on-device path, which iOS can delete.
+    if (saving || uploadingCount > 0) return;
     setSaving(true);
     const parsedCount = parseInt(count, 10);
     // Modifier only applies when low === high (single grade).
@@ -164,8 +169,10 @@ export default function LogScreen() {
       notes: notes || undefined,
       attempts: attempts !== '' ? parseInt(attempts, 10) : null,
       sessions: sessions !== '' ? parseInt(sessions, 10) : null,
-      routeMedia,
-      climbMedia,
+      media: media.map(toClimbMedia),
+      // Folded into `media` above.
+      routeMedia: null,
+      climbMedia: null,
       date,
     };
     try {
@@ -185,9 +192,9 @@ export default function LogScreen() {
             <Text style={styles.cancel}>Cancel</Text>
           </Pressable>
           <Text style={styles.title}>{editing ? 'Edit Climb' : 'Log a Climb'}</Text>
-          <Pressable onPress={handleSave} disabled={saving}>
-            <Text style={[styles.save, saving && { opacity: 0.4 }]}>
-              {saving ? 'Saving…' : 'Save'}
+          <Pressable onPress={handleSave} disabled={saving || uploadingCount > 0}>
+            <Text style={[styles.save, (saving || uploadingCount > 0) && { opacity: 0.4 }]}>
+              {saving ? 'Saving…' : uploadingCount > 0 ? 'Uploading…' : 'Save'}
             </Text>
           </Pressable>
         </View>
@@ -493,30 +500,26 @@ export default function LogScreen() {
             />
           </Field>
 
-          <Field label="Media (optional)">
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <MediaPicker
-                label="Route"
-                media={routeMedia}
-                onSet={setRouteMedia}
-                style={{ flex: 1, height: 110 }}
-              />
-              <MediaPicker
-                label="Your send"
-                media={climbMedia}
-                onSet={setClimbMedia}
-                style={{ flex: 1, height: 110 }}
-              />
-            </View>
-            <Text style={styles.hint}>Long-press to remove.</Text>
+          <Field label="Photos & videos (optional)">
+            <MediaGalleryEditor
+              media={media}
+              onChange={setMedia}
+              onMarkSend={() => setSent(true)}
+            />
           </Field>
 
           <Pressable
             onPress={handleSave}
-            disabled={saving}
-            style={[styles.cta, saving && { opacity: 0.5 }]}>
+            disabled={saving || uploadingCount > 0}
+            style={[styles.cta, (saving || uploadingCount > 0) && { opacity: 0.5 }]}>
             <Text style={styles.ctaText}>
-              {saving ? 'Saving…' : editing ? 'Update Climb' : '🧗 Log Climb'}
+              {saving
+                ? 'Saving…'
+                : uploadingCount > 0
+                  ? `Uploading ${uploadingCount} file${uploadingCount === 1 ? '' : 's'}…`
+                  : editing
+                    ? 'Update Climb'
+                    : '🧗 Log Climb'}
             </Text>
           </Pressable>
         </ScrollView>

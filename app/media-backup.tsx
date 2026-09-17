@@ -18,7 +18,40 @@ import { isLocalUri, localFileExists, uploadMedia } from '@/lib/media-storage';
 type Slot = 'routeMedia' | 'climbMedia';
 const SLOTS: Slot[] = ['routeMedia', 'climbMedia'];
 
-type Item = { climb: Climb; slot: Slot; media: Media; readable: boolean };
+/** Where a media item lives on its climb: a legacy slot, or a place in the list. */
+type Ref = { type: 'slot'; slot: Slot } | { type: 'list'; index: number };
+
+type Item = { climb: Climb; ref: Ref; media: Media; readable: boolean };
+
+type Change = { ref: Ref; with: Media | null };
+
+/**
+ * Apply every change for one climb in a single write. List removals are done
+ * in one pass rather than one at a time, since removing by index would
+ * otherwise shift the positions of the items still to be removed.
+ */
+function applyToClimb(climb: Climb, changes: Change[]): Climb {
+  let next: Climb = climb;
+  const listChanges = new Map<number, Media | null>();
+  for (const change of changes) {
+    if (change.ref.type === 'slot') next = { ...next, [change.ref.slot]: change.with };
+    else listChanges.set(change.ref.index, change.with);
+  }
+  if (listChanges.size > 0) {
+    next = {
+      ...next,
+      media: (climb.media ?? []).flatMap((m, i) => {
+        if (!listChanges.has(i)) return [m];
+        const replacement = listChanges.get(i);
+        // Keep the attempt number and send flag; only the file moves.
+        return replacement ? [{ ...m, uri: replacement.uri, thumb: replacement.thumb }] : [];
+      }),
+    };
+  }
+  return next;
+}
+
+const storageKey = (ref: Ref) => (ref.type === 'slot' ? ref.slot : `media-${ref.index}`);
 
 /**
  * One-time rescue for media logged before uploads existed. Anything still on
@@ -42,8 +75,22 @@ export default function MediaBackupScreen() {
       for (const slot of SLOTS) {
         const media = climb[slot];
         if (!media || !isLocalUri(media.uri)) continue;
-        found.push({ climb, slot, media, readable: localFileExists(media.uri) });
+        found.push({
+          climb,
+          ref: { type: 'slot', slot },
+          media,
+          readable: localFileExists(media.uri),
+        });
       }
+      (climb.media ?? []).forEach((media, index) => {
+        if (!isLocalUri(media.uri)) return;
+        found.push({
+          climb,
+          ref: { type: 'list', index },
+          media,
+          readable: localFileExists(media.uri),
+        });
+      });
     }
     return found;
   }, [climbs]);
@@ -67,27 +114,25 @@ export default function MediaBackupScreen() {
     }
 
     for (const [climbId, group] of byClimb) {
-      let next = group[0].climb;
-      let changed = false;
+      const changes: Change[] = [];
       for (const item of group) {
         try {
-          const remote = await uploadMedia(item.media, `climbs/${climbId}/${item.slot}`);
+          const remote = await uploadMedia(item.media, `climbs/${climbId}/${storageKey(item.ref)}`);
           if (remote) {
-            next = { ...next, [item.slot]: remote };
-            changed = true;
+            changes.push({ ref: item.ref, with: remote });
             saved++;
           } else {
             failed++;
           }
         } catch (e) {
-          console.warn('[crux] backup failed for', climbId, item.slot, e);
+          console.warn('[crux] backup failed for', climbId, storageKey(item.ref), e);
           failed++;
         }
         setDone(d => d + 1);
       }
-      if (changed) {
+      if (changes.length > 0) {
         try {
-          await upsert(next);
+          await upsert(applyToClimb(group[0].climb, changes));
         } catch (e) {
           console.warn('[crux] could not save climb after upload', climbId, e);
         }
@@ -117,8 +162,10 @@ export default function MediaBackupScreen() {
         byClimb.set(item.climb.id, list);
       }
       for (const [climbId, group] of byClimb) {
-        let next = group[0].climb;
-        for (const item of group) next = { ...next, [item.slot]: null };
+        const next = applyToClimb(
+          group[0].climb,
+          group.map(item => ({ ref: item.ref, with: null }))
+        );
         try {
           await upsert(next);
         } catch (e) {

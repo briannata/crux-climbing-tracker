@@ -18,13 +18,28 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   /** When true, tapping opens a fullscreen viewer. Default true. */
   expandable?: boolean;
+  /**
+   * Show a video as its thumbnail rather than an inline player. A gallery of
+   * attempts would otherwise create one live player per tile; the fullscreen
+   * viewer still plays it.
+   */
+  preview?: boolean;
 };
 
-export function MediaView({ media, style, expandable = true }: Props) {
+export function MediaView({ media, style, expandable = true, preview = false }: Props) {
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const Content =
-    media.kind === 'video' ? (
+    media.kind === 'video' && preview ? (
+      <View style={[styles.base, style as any]}>
+        {media.thumb ? (
+          <Image source={{ uri: media.thumb }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        ) : null}
+        <View style={styles.playBadge}>
+          <Text style={styles.playIcon}>▶</Text>
+        </View>
+      </View>
+    ) : media.kind === 'video' ? (
       <VideoBlock uri={media.uri} style={style} />
     ) : (
       <Image source={{ uri: media.uri }} style={[styles.base, style as any]} resizeMode="cover" />
@@ -111,4 +126,18 @@ const styles = StyleSheet.create({
   closeText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   modalContent: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   full: { width: '100%', height: '100%', backgroundColor: 'transparent' },
+  playBadge: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -18,
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playIcon: { color: '#fff', fontSize: 14, marginLeft: 2 },
 });

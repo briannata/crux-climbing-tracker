@@ -2,7 +2,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MediaView } from '@/components/media-view';
-import { C, climbGradeColor, climbGradeLabel } from '@/constants/climbing';
+import {
+  C,
+  climbGradeColor,
+  climbGradeLabel,
+  climbMediaList,
+  mediaCaption,
+} from '@/constants/climbing';
 import { useClimbs } from '@/hooks/use-climbs';
 
 export default function ClimbDetailScreen() {
@@ -26,6 +32,15 @@ export default function ClimbDetailScreen() {
 
   const col = climbGradeColor(climb);
   const gradeLabel = climbGradeLabel(climb);
+
+  const allMedia = climbMediaList(climb);
+  const send = allMedia.find(m => m.isSend && m.kind === 'video');
+  // Everything else: route photos (unnumbered) first, then attempts in order.
+  const gallery = allMedia
+    .filter(m => m !== send)
+    .map((m, i) => ({ m, i }))
+    .sort((a, b) => (a.m.attempt ?? 0) - (b.m.attempt ?? 0) || a.i - b.i)
+    .map(x => x.m);
   const dateStr = new Date(climb.date + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -110,10 +125,30 @@ export default function ClimbDetailScreen() {
           </View>
         )}
 
-        {(climb.routeMedia || climb.climbMedia) && (
-          <View style={styles.photoRow}>
-            {climb.routeMedia && <MediaView media={climb.routeMedia} style={styles.photo} />}
-            {climb.climbMedia && <MediaView media={climb.climbMedia} style={styles.photo} />}
+        {send && (
+          <View style={styles.mediaBlock}>
+            <Text style={styles.mediaLabel}>The send</Text>
+            <MediaView media={send} style={styles.sendVideo} />
+            {!!send.attempt && <Text style={styles.caption}>Attempt {send.attempt}</Text>}
+          </View>
+        )}
+
+        {gallery.length > 0 && (
+          <View style={styles.mediaBlock}>
+            <Text style={styles.mediaLabel}>
+              {send ? 'Attempts & photos' : 'Photos & videos'}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.gallery}>
+              {gallery.map((m, i) => (
+                <View key={m.id ?? `${m.uri}-${i}`} style={styles.galleryItem}>
+                  <MediaView media={m} style={styles.galleryMedia} preview />
+                  <Text style={styles.caption}>{mediaCaption(m)}</Text>
+                </View>
+              ))}
+            </ScrollView>
           </View>
         )}
 
@@ -190,8 +225,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   notesText: { fontSize: 14, color: C.text, lineHeight: 22 },
-  photoRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  photo: { flex: 1, height: 200, borderRadius: 12, backgroundColor: C.surfaceEl },
+  mediaBlock: { marginBottom: 20 },
+  mediaLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: C.textSec,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  sendVideo: { width: '100%', height: 260, borderRadius: 12, backgroundColor: C.surfaceEl },
+  gallery: { gap: 10 },
+  galleryItem: { width: 140 },
+  galleryMedia: { width: 140, height: 180, borderRadius: 12, backgroundColor: C.surfaceEl },
+  caption: { fontSize: 12, color: C.textSec, marginTop: 6 },
   deleteBtn: {
     borderWidth: 1,
     borderColor: C.danger + '88',
